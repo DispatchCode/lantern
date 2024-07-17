@@ -14,20 +14,18 @@
 #include <linux/uaccess.h>
 #include <linux/rcupdate.h>
 
-#define DEVICE_NAME "packet_sniffer"
-#define CLASS_NAME "packet_sniffer_class"
-#define BUFFER_SIZE 4096
-#define IP_BUFF_SIZE 16
+#include "packet_sniffer.h"
+
 
 static wait_queue_head_t wait_queue;
 static struct nf_hook_ops nf_ops;
 static dev_t dev_num;
 static struct cdev char_dev;
 
-static char buffer[BUFFER_SIZE];
-static int buffer_index = 0;
+static struct net_packet buffer[BUFFER_SIZE];
 static DEFINE_MUTEX(buffer_mutex);
 static int data_ready = 0;
+static int packet_index = 0;
 
 static struct class *packet_class = NULL;
 static struct device *packet_device = NULL;
@@ -54,7 +52,7 @@ static int device_release(struct inode *inode, struct file *file) {
 }
 
 static ssize_t device_read(struct file *file, char __user *user_buffer, size_t len, loff_t *offset) {
-    int size_to_copy;
+    int size_to_copy, packet_size;
 
     if (wait_event_interruptible(wait_queue, data_ready)) {
         return -ERESTARTSYS;
@@ -64,25 +62,52 @@ static ssize_t device_read(struct file *file, char __user *user_buffer, size_t l
         return -ERESTARTSYS;
     }
 
-    size_to_copy = min(buffer_index, (int)len);
-    if (copy_to_user(user_buffer, buffer, size_to_copy)) {
+    packet_size = sizeof(struct net_packet);
+    size_to_copy = min(packet_index * packet_size, (int)len);
+    if (likely(copy_to_user(user_buffer, buffer, size_to_copy))) {
         mutex_unlock(&buffer_mutex);
         return -EFAULT;
     }
 
-    buffer_index = 0;
+    packet_index = 0;
     data_ready = 0;
     mutex_unlock(&buffer_mutex);
 
     return size_to_copy;
 }
 
-static unsigned int capture(void *priv, struct sk_buff *skb, const struct nf_hook_state *state) {
-    struct iphdr *ip_header;
+static struct net_packet fill_packet_info(struct sk_buff *skb, struct iphdr *ip_header) {
+    struct net_packet pkt;
     struct tcphdr *tcp_header;
     struct udphdr *udp_header;
-    char src_ip[IP_BUFF_SIZE], dest_ip[IP_BUFF_SIZE];
-    int bytes_written, remaining_space;
+ 
+    scnprintf(pkt.src, IP_BUFF_SIZE, "%pI4", &ip_header->saddr);
+    scnprintf(pkt.dst, IP_BUFF_SIZE, "%pI4", &ip_header->daddr);
+
+    pkt.protocol = ip_header->protocol;
+
+    switch(pkt.protocol) {
+        case IPPROTO_TCP:
+	    tcp_header = tcp_hdr(skb);
+	    pkt.src_port = ntohs(tcp_header->source);
+	    pkt.dst_port = ntohs(tcp_header->dest);
+	    break;
+	case IPPROTO_UDP:
+	    udp_header = udp_hdr(skb);
+	    pkt.src_port = ntohs(udp_header->source);
+	    pkt.dst_port = ntohs(udp_header->dest);
+	    break;
+	default:
+	    pkt.src_port = 0;
+	    pkt.dst_port = 0;
+    }
+
+    return pkt;
+}
+
+static unsigned int capture(void *priv, struct sk_buff *skb, const struct nf_hook_state *state) {
+    struct iphdr *ip_header;
+    struct net_packet pkt;
 
     if (skb->protocol != htons(ETH_P_IP)) {
         return NF_ACCEPT;
@@ -91,53 +116,29 @@ static unsigned int capture(void *priv, struct sk_buff *skb, const struct nf_hoo
     rcu_read_lock(); // Start RCU read-side critical section
     ip_header = ip_hdr(skb);
 
-    scnprintf(src_ip, IP_BUFF_SIZE, "%pI4", &ip_header->saddr);
-    scnprintf(dest_ip, IP_BUFF_SIZE, "%pI4", &ip_header->daddr);
+    pkt = fill_packet_info(skb, ip_header);
 
-    if (mutex_trylock(&buffer_mutex)) { // Use non-blocking lock to avoid sleeping
-        remaining_space = BUFFER_SIZE - buffer_index;
-
-        if (remaining_space <= 0) {
-            buffer_index = 0;
-            memset(buffer, 0, BUFFER_SIZE);
-            pr_info("packet_sniffer: Cleaning buffer...\n");
-            remaining_space = BUFFER_SIZE;
-        }
-
-        bytes_written = scnprintf(buffer + buffer_index, remaining_space, "Packet: %s -> %s\n", src_ip, dest_ip);
-        buffer_index += bytes_written;
-        remaining_space -= bytes_written;
-
-        if (remaining_space > 0) {
-            switch (ip_header->protocol) {
-                case IPPROTO_TCP:
-                    tcp_header = tcp_hdr(skb);
-                    bytes_written = scnprintf(buffer + buffer_index, remaining_space, "TCP: %s:%d -> %s:%d\n",
-                        src_ip, ntohs(tcp_header->source), dest_ip, ntohs(tcp_header->dest));
-                    buffer_index += bytes_written;
-                    remaining_space -= bytes_written;
-                    break;
-                case IPPROTO_UDP:
-                    udp_header = udp_hdr(skb);
-                    bytes_written = scnprintf(buffer + buffer_index, remaining_space, "UDP: %s:%d -> %s:%d\n",
-                        src_ip, ntohs(udp_header->source), dest_ip, ntohs(udp_header->dest));
-                    buffer_index += bytes_written;
-                    remaining_space -= bytes_written;
-                    break;
-                default:
-                    break;
-            }
-        }
-
-        data_ready = 1;
-        mutex_unlock(&buffer_mutex);
-        wake_up_interruptible(&wait_queue);
+    if(mutex_trylock(&buffer_mutex)) {
+        if(likely(packet_index < BUFFER_SIZE)) {
+	    buffer[packet_index++] = pkt;
+	    data_ready = 1;
+	    mutex_unlock(&buffer_mutex);
+	    wake_up_interruptible(&wait_queue);
+	}
+	else {
+	    pr_info("packet_sniffer: Buffer is full, reset buffer...");
+	    memset(buffer, 0, BUFFER_SIZE);
+	    packet_index = 0;
+	    mutex_unlock(&buffer_mutex);
+	}
     }
 
     rcu_read_unlock(); // End RCU read-side critical section
 
     return NF_ACCEPT;
 }
+
+#define CLASS_NAME "packet_sniffer_class"
 
 static int __init packet_sniffer_init(void) {
     int ret;
