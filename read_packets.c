@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <stdint.h>
 #include <netinet/ip.h>
+#include <time.h>
 
 #include "packet_sniffer.h"
 
@@ -32,7 +33,7 @@ int main() {
 
 	fd = open(DEVICE_FILE, O_RDONLY);
 	if(fd < 0) {
-		perror("Failed to open device file");
+   		perror("Failed to open device file");
 	}
 
 	while(1) {
@@ -40,6 +41,13 @@ int main() {
 		if(bytes_read > 0) {
 			packet = (struct net_packet*) buffer;
 			for(int i=0; i<bytes_read / sizeof(struct net_packet); i++) {
+                	        char time_buf[64];
+        	                struct tm *tm_info;
+	
+	                        tm_info = localtime((time_t*)&packet->timestamp_sec);
+        	                strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", tm_info);
+
+				printf("Timestamp: %s.%09lu\n", time_buf, packet->timestamp_nsec);
 				printf("Packet: %s -> %s, protocol: %s, src_port: %u, dest_port: %u\n",
                        		packet[i].src, packet[i].dst, net_decode_protocol(packet[i].protocol),
                        		packet[i].src_port, packet[i].dst_port);
