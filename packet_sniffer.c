@@ -9,10 +9,11 @@
 #include <linux/fs.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
+#include <linux/spinlock.h>
 #include <linux/mutex.h>
 #include <linux/version.h>
 #include <linux/uaccess.h>
-#include <linux/rcupdate.h>
+#include <linux/ktime.h>
 
 #include "packet_sniffer.h"
 
@@ -23,7 +24,9 @@ static dev_t dev_num;
 static struct cdev char_dev;
 
 static struct net_packet buffer[BUFFER_SIZE];
+static DEFINE_SPINLOCK(buffer_spinlock);
 static DEFINE_MUTEX(buffer_mutex);
+
 static int data_ready = 0;
 static int packet_index = 0;
 
@@ -58,8 +61,8 @@ static ssize_t device_read(struct file *file, char __user *user_buffer, size_t l
         return -ERESTARTSYS;
     }
 
-    if (mutex_lock_interruptible(&buffer_mutex)) {
-        return -ERESTARTSYS;
+    if(mutex_lock_interruptible(&buffer_mutex)) {
+	return -ERESTARTSYS;
     }
 
     packet_size = sizeof(struct net_packet);
@@ -80,11 +83,16 @@ static struct net_packet fill_packet_info(struct sk_buff *skb, struct iphdr *ip_
     struct net_packet pkt;
     struct tcphdr *tcp_header;
     struct udphdr *udp_header;
+    struct timespec64 ts;
  
     scnprintf(pkt.src, IP_BUFF_SIZE, "%pI4", &ip_header->saddr);
     scnprintf(pkt.dst, IP_BUFF_SIZE, "%pI4", &ip_header->daddr);
 
+    ts = ktime_to_timespec64(skb->tstamp);
+    
     pkt.protocol = ip_header->protocol;
+    pkt.timestamp_sec = ts.tv_sec;
+    pkt.timestamp_nsec = ts.tv_nsec;
 
     switch(pkt.protocol) {
         case IPPROTO_TCP:
@@ -108,32 +116,30 @@ static struct net_packet fill_packet_info(struct sk_buff *skb, struct iphdr *ip_
 static unsigned int capture(void *priv, struct sk_buff *skb, const struct nf_hook_state *state) {
     struct iphdr *ip_header;
     struct net_packet pkt;
+    unsigned long flags;
 
     if (skb->protocol != htons(ETH_P_IP)) {
         return NF_ACCEPT;
     }
 
-    rcu_read_lock(); // Start RCU read-side critical section
     ip_header = ip_hdr(skb);
 
     pkt = fill_packet_info(skb, ip_header);
 
-    if(mutex_trylock(&buffer_mutex)) {
-        if(likely(packet_index < BUFFER_SIZE)) {
-	    buffer[packet_index++] = pkt;
-	    data_ready = 1;
-	    mutex_unlock(&buffer_mutex);
-	    wake_up_interruptible(&wait_queue);
-	}
-	else {
-	    pr_info("packet_sniffer: Buffer is full, reset buffer...");
-	    memset(buffer, 0, BUFFER_SIZE);
-	    packet_index = 0;
-	    mutex_unlock(&buffer_mutex);
-	}
-    }
+    spin_lock_irqsave(&buffer_spinlock, flags);
 
-    rcu_read_unlock(); // End RCU read-side critical section
+    if(likely(packet_index < BUFFER_SIZE)) {
+	buffer[packet_index++] = pkt;
+	data_ready = 1;
+	spin_unlock_irqrestore(&buffer_spinlock, flags);
+	wake_up_interruptible(&wait_queue);
+    }
+    else {
+        pr_info("packet_sniffer: Buffer is full, reset buffer...");
+        memset(buffer, 0, BUFFER_SIZE);
+	packet_index = 0;
+	spin_unlock_irqrestore(&buffer_spinlock, flags);
+    }
 
     return NF_ACCEPT;
 }
