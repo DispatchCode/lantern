@@ -6,6 +6,8 @@
 #define IP_BUFF_SIZE 16
 
 struct net_packet {
+	unsigned long timestamp_sec;
+	unsigned long timestamp_nsec;
 	char src[IP_BUFF_SIZE];
 	char dst[IP_BUFF_SIZE];
 	uint16_t src_port;
