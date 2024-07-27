@@ -11,7 +11,7 @@
 #include "packet_sniffer.h"
 
 #define DEVICE_FILE "/dev/packet_sniffer"
-#define MAX_PACKETS 57
+#define MAX_PACKETS 58
 
 struct net_packet packets[MAX_PACKETS];
 int packet_count = 0;
@@ -132,7 +132,7 @@ void draw_panel(WINDOW *win, const char *label) {
 
 void add_packet(struct net_packet *new_packet) {
     pthread_mutex_lock(&packet_mutex);
-    if (packet_count >= MAX_PACKETS) {
+    if (packet_count >= MAX_PACKETS-1) {
         // Shift packets up to make room for the new packet
         memmove(packets, packets + 1, (MAX_PACKETS - 1) * sizeof(struct net_packet));
         packets[MAX_PACKETS - 1] = *new_packet;
