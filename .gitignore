@@ -6,3 +6,4 @@
 Module.symvers
 modules.order
 read_packets
+test
