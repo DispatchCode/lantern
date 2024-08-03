@@ -110,29 +110,24 @@ static struct net_packet fill_packet_info(struct sk_buff *skb, struct iphdr *ip_
 	struct udphdr *udp_header;
 	struct timespec64 ts;
 
-	scnprintf(pkt.src, IP_BUFF_SIZE, "%pI4", &ip_header->saddr);
-	scnprintf(pkt.dst, IP_BUFF_SIZE, "%pI4", &ip_header->daddr);
-
 	ts = ktime_to_timespec64(skb->tstamp);
 
 	pkt.protocol = ip_header->protocol;
 	pkt.timestamp_sec = ts.tv_sec;
 	pkt.timestamp_nsec = ts.tv_nsec;
 
+	memcpy(&pkt.network, ip_header, sizeof(struct iphdr));
+	
+
 	switch(pkt.protocol) {
 		case IPPROTO_TCP:
 			tcp_header = tcp_hdr(skb);
-			pkt.src_port = ntohs(tcp_header->source);
-			pkt.dst_port = ntohs(tcp_header->dest);
+			memcpy(&pkt.transport, tcp_header, sizeof(struct tcphdr));
 			break;
 		case IPPROTO_UDP:
 			udp_header = udp_hdr(skb);
-			pkt.src_port = ntohs(udp_header->source);
-			pkt.dst_port = ntohs(udp_header->dest);
+			memcpy(&pkt.transport, udp_header, sizeof(struct udphdr));
 			break;
-		default:
-			pkt.src_port = 0;
-			pkt.dst_port = 0;
 	}
 
 	return pkt;
@@ -157,13 +152,13 @@ static unsigned int capture(void *priv, struct sk_buff *skb, const struct nf_hoo
 	}
 
 	ip_header = ip_hdr(skb);
-
+	
 	pkt = fill_packet_info(skb, ip_header);
 
 	spin_lock_irqsave(&buffer_spinlock, flags);
 
 	if(likely(packet_index < BUFFER_SIZE)) {
-		buffer[packet_index++] = pkt;
+		memcpy(&buffer[packet_index++], &pkt, sizeof(struct net_packet));
 		data_ready = 1;
 		spin_unlock_irqrestore(&buffer_spinlock, flags);
 		wake_up_interruptible(&wait_queue);
