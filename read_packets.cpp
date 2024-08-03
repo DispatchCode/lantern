@@ -74,7 +74,8 @@ void PacketReaderWindow::OnAbout(wxCommandEvent& event)
 }
 
 void PacketReaderWindow::OnQuit(wxCommandEvent& event)
-{
+{	
+	running = false;
 	Close();
 }
 
@@ -129,7 +130,7 @@ PacketReaderWindow::PacketReaderWindow(const wxString& title) : wxFrame(NULL, wx
 	SetMenuBar(menuBar);
 
 	CreateStatusBar(2);
-	SetStatusText(wxT("Welcome to wxWidgets!"));
+	SetStatusText(wxT("Packet Sniffer"));
 
 	wxBoxSizer *box = new wxBoxSizer(wxVERTICAL);
 
@@ -139,11 +140,18 @@ PacketReaderWindow::PacketReaderWindow(const wxString& title) : wxFrame(NULL, wx
 	listCtrl->InsertColumn(3, "Timestamp", wxLIST_FORMAT_LEFT, 200);
 	listCtrl->InsertColumn(4, "Protocol", wxLIST_FORMAT_LEFT, 80);
 
+	wxBoxSizer *info = new wxBoxSizer(wxVERTICAL);
+	
+	wxListCtrl *infoList = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT);
+	infoList->InsertColumn(0, "Info Test", wxLIST_FORMAT_LEFT, 250);
+	
+	
 	box->Add(listCtrl, 1, wxEXPAND | wxALL, 5);
+	box->Add(infoList, 1, wxEXPAND | wxALL, 5);
+
 	SetSizer(box);
 
 	StartPacketReader();
-
 }
 
 
