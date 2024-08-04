@@ -4,7 +4,6 @@
 #define DEVICE_FILE "/dev/packet_sniffer"
 
 
-
 Packet::Packet(const struct net_packet& pkt)
 {
 	timestamp_sec = pkt.timestamp_sec;
@@ -12,6 +11,14 @@ Packet::Packet(const struct net_packet& pkt)
 	memcpy(&network, &pkt.network, sizeof(network));
 	memcpy(&transport, &pkt.transport, sizeof(transport));
 	protocol = pkt.protocol;
+	skb_len = pkt.skb_len;
+}
+
+wxString Packet::GetLength() const
+{	
+	wxString skb_len_str;
+	skb_len_str << skb_len;
+	return skb_len_str;
 }
 
 wxString Packet::GetSourceIP() const 
@@ -56,14 +63,10 @@ wxString Packet::GetTimestamp() const {
 bool PacketReader::OnInit()
 {
 	PacketReaderWindow *window = new PacketReaderWindow(wxT("Packet sniffer"));
+	window->SetInitialSize();
 	window->Show(true);
 	return true;
 }
-
-BEGIN_EVENT_TABLE(PacketReaderWindow, wxFrame)
-	EVT_MENU(wxID_ABOUT, PacketReaderWindow::OnAbout)
-	EVT_MENU(wxID_EXIT, PacketReaderWindow::OnQuit)
-END_EVENT_TABLE()
 
 void PacketReaderWindow::OnAbout(wxCommandEvent& event)
 {
@@ -77,6 +80,17 @@ void PacketReaderWindow::OnQuit(wxCommandEvent& event)
 {	
 	running = false;
 	Close();
+}
+
+void PacketReaderWindow::OnMouseDownEvent(wxListEvent& event)
+{
+	int index = event.GetItem();
+	if(index < packets.size())
+	{
+		const Packet& pkt = packets[index];
+		infoList->DeleteAllItems(); // TODO find a better way
+		infoList->InsertItem(0, pkt.GetProtocol());
+	}
 }
 
 void PacketReaderWindow::StartPacketReader()
@@ -110,7 +124,8 @@ void PacketReaderWindow::StartPacketReader()
 		long index = listCtrl->InsertItem(listCtrl->GetItemCount(), pkt.GetSourceIP());
 		listCtrl->SetItem(index, 1, pkt.GetDestIP());
 		listCtrl->SetItem(index, 2, pkt.GetTimestamp());
-		listCtrl->SetItem(index, 3, pkt.GetProtocol());	
+		listCtrl->SetItem(index, 3, pkt.GetProtocol());
+		listCtrl->SetItem(index, 4, pkt.GetLength());
 	});
 } 
 
@@ -134,17 +149,22 @@ PacketReaderWindow::PacketReaderWindow(const wxString& title) : wxFrame(NULL, wx
 
 	wxBoxSizer *box = new wxBoxSizer(wxVERTICAL);
 
-	listCtrl = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL);
+	listCtrl = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxSize(-1,-1), wxLC_REPORT | wxLC_SINGLE_SEL | wxBORDER_SUNKEN);
 	listCtrl->InsertColumn(0, "Source IP", wxLIST_FORMAT_LEFT, 150);
-	listCtrl->InsertColumn(2, "Destination IP", wxLIST_FORMAT_LEFT, 150);
-	listCtrl->InsertColumn(3, "Timestamp", wxLIST_FORMAT_LEFT, 200);
-	listCtrl->InsertColumn(4, "Protocol", wxLIST_FORMAT_LEFT, 80);
+	listCtrl->InsertColumn(1, "Destination IP", wxLIST_FORMAT_LEFT, 150);
+	listCtrl->InsertColumn(2, "Timestamp", wxLIST_FORMAT_LEFT, 200);
+	listCtrl->InsertColumn(3, "Protocol", wxLIST_FORMAT_LEFT, 80);
+	listCtrl->InsertColumn(4, "Length", wxLIST_FORMAT_LEFT, 100);
+	listCtrl->InsertColumn(5, "Request Method", wxLIST_FORMAT_LEFT, 250);
+	listCtrl->InsertColumn(6, "Host", wxLIST_FORMAT_LEFT, 300);
 
 	wxBoxSizer *info = new wxBoxSizer(wxVERTICAL);
 	
-	wxListCtrl *infoList = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT);
-	infoList->InsertColumn(0, "Info Test", wxLIST_FORMAT_LEFT, 250);
-	
+	infoList = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxSize(-1,-1), wxLC_REPORT);
+	infoList->InsertColumn(0, "Packet Information", wxLIST_FORMAT_LEFT, 550);
+	infoList->InsertItem(0,wxT(""));
+
+	listCtrl->Bind(wxEVT_LIST_ITEM_SELECTED, &PacketReaderWindow::OnMouseDownEvent, this);
 	
 	box->Add(listCtrl, 1, wxEXPAND | wxALL, 5);
 	box->Add(infoList, 1, wxEXPAND | wxALL, 5);

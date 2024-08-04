@@ -14,6 +14,10 @@
 #include <linux/tcp.h>    
 #include <linux/udp.h>
 
+#define HTTP_METHOD_SIZE 8
+#define HTTP_BODY_SIZE   1024
+#define HOSTNAME_SIZE    256
+
 class Packet {
 public:
     uint64_t timestamp_sec;
@@ -31,14 +35,22 @@ public:
 	} transport;
 
 	int protocol;
-
+	char http_method[HTTP_METHOD_SIZE];
+    char http_body[HTTP_BODY_SIZE];
+    char hostname[HOSTNAME_SIZE];
+    int length;
+    int skb_len;
+	
 	Packet(const struct net_packet& packet);
+
+	wxString GetLength() const;
 	wxString GetSourceIP() const;
 	wxString GetDestIP() const;
 	wxString GetProtocol() const;
 	uint16_t GetSourcePort() const;
 	uint16_t GetDestPort() const;
 	wxString GetTimestamp() const;
+	wxString GetRequestMethod() const;
 };
 
 
@@ -58,11 +70,14 @@ public:
     void OnQuit(wxCommandEvent& event);
     void OnAbout(wxCommandEvent& event);
 	void OnSize(wxCommandEvent& event);
+	void OnMouseDownEvent(wxListEvent& event);
 private:
 	void StartPacketReader();
 
-	wxListCtrl* listCtrl;
-    std::vector<Packet> packets;
+	wxListCtrl *listCtrl;
+	wxListCtrl *infoList;    
+
+	std::vector<Packet> packets;
     std::mutex packetMutex;
     std::thread readerThread;
     bool running;
@@ -70,6 +85,11 @@ private:
 	// Defined as an event class
     DECLARE_EVENT_TABLE()
 };
+
+BEGIN_EVENT_TABLE(PacketReaderWindow, wxFrame)
+    EVT_MENU(wxID_ABOUT, PacketReaderWindow::OnAbout)
+    EVT_MENU(wxID_EXIT, PacketReaderWindow::OnQuit)
+END_EVENT_TABLE()
 
 DECLARE_APP(PacketReader);
 IMPLEMENT_APP(PacketReader); // PacketReader object created by wxWidgets
