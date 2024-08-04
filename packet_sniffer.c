@@ -103,6 +103,36 @@ static ssize_t device_read(struct file *file, char __user *user_buffer, size_t l
 	return size_to_copy;
 }
 
+static void fill_http_info(struct sk_buff *skb, struct tcphdr *tcp,  struct net_packet *pkt) {
+	char *data = (char*)((unsigned char*) tcp + (tcp->doff << 2));
+	int data_len = skb->len - ((unsigned char*)data - (unsigned char*) ip_hdr(skb));
+
+	if(data_len <= 0) {
+		return;
+	}
+
+	pr_info("fill_http_info\n");
+	if(strncmp(data, "GET", 3) == 0 || strncmp(data, "POST", 4) == 0) {
+		sscanf(data, "%7s", pkt->http_method);
+		pr_info("REQUEST METHOD: %s", pkt->http_method);	
+		char *host_ptr = strnstr(data, "Host:", data_len);
+		if(host_ptr) {
+			sscanf(host_ptr, "Host: %255s", pkt->hostname);
+		}
+
+		char *length_ptr = strnstr(data, "Content-Length:", data_len);
+		if(length_ptr) {
+			sscanf(length_ptr, "Content-Length: %d", &pkt->length);
+		}
+
+		char *body_ptr = strnstr(data, "\r\n\r\n", data_len);
+		if(body_ptr) {
+			body_ptr += 4;
+			strncpy(pkt->http_body, body_ptr, min(HTTP_BODY_SIZE, data_len - (body_ptr - data)));
+		}
+	}
+}
+
 // read TCP / UDP header and collect IP informations
 static struct net_packet fill_packet_info(struct sk_buff *skb, struct iphdr *ip_header) {
 	struct net_packet pkt;
@@ -112,17 +142,18 @@ static struct net_packet fill_packet_info(struct sk_buff *skb, struct iphdr *ip_
 
 	ts = ktime_to_timespec64(skb->tstamp);
 
+	pkt.skb_len = skb->len;
 	pkt.protocol = ip_header->protocol;
 	pkt.timestamp_sec = ts.tv_sec;
 	pkt.timestamp_nsec = ts.tv_nsec;
 
-	memcpy(&pkt.network, ip_header, sizeof(struct iphdr));
-	
+	memcpy(&pkt.network, ip_header, sizeof(struct iphdr));	
 
 	switch(pkt.protocol) {
 		case IPPROTO_TCP:
 			tcp_header = tcp_hdr(skb);
 			memcpy(&pkt.transport, tcp_header, sizeof(struct tcphdr));
+			fill_http_info(skb, tcp_header, &pkt);
 			break;
 		case IPPROTO_UDP:
 			udp_header = udp_hdr(skb);

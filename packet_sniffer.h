@@ -4,6 +4,11 @@
 #define DEVICE_NAME "packet_sniffer"
 #define BUFFER_SIZE  4096
 
+#define HTTP_METHOD_SIZE 8
+#define HTTP_BODY_SIZE   1024
+#define HOSTNAME_SIZE    256
+
+
 // Generic buffer size
 #define NETWORK_LAYER    40
 #define TRANSPORT_LAYER  40
@@ -18,6 +23,11 @@ struct net_packet {
 	char transport[40];
 
 	int protocol;
+	char http_method[HTTP_METHOD_SIZE];
+	char http_body[HTTP_BODY_SIZE];
+	char hostname[HOSTNAME_SIZE];
+	int length;
+	int skb_len;
 }  __attribute__ ((aligned));
 
 #endif
