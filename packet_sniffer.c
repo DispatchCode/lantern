@@ -196,19 +196,16 @@ static unsigned int capture(void *priv, struct sk_buff *skb, const struct nf_hoo
 
 	spin_lock_irqsave(&buffer_spinlock, flags);
 
-	if(likely(packet_index < BUFFER_SIZE)) {
-		memcpy(&buffer[packet_index++], &pkt, sizeof(struct net_packet));
-		data_ready = 1;
-		spin_unlock_irqrestore(&buffer_spinlock, flags);
-		wake_up_interruptible(&wait_queue);
-	}
-	else { 
-		// TODO BUG: when the buffer is full, the collected packet is lost... should be placed in the array
+	if(unlikely(packet_index >= BUFFER_SIZE)) {
 		pr_info("packet_sniffer: Buffer is full, reset buffer...");
 		memset(buffer, 0, BUFFER_SIZE);
 		packet_index = 0;
-		spin_unlock_irqrestore(&buffer_spinlock, flags);
-	}
+	}	
+		
+	memcpy(&buffer[packet_index++], &pkt, sizeof(struct net_packet));
+	data_ready = 1;
+	spin_unlock_irqrestore(&buffer_spinlock, flags);
+	wake_up_interruptible(&wait_queue);
 
 	return NF_ACCEPT;
 }
