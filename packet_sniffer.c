@@ -133,13 +133,34 @@ static void fill_http_info(struct sk_buff *skb, struct tcphdr *tcp,  struct net_
 	}
 }
 
-// read TCP / UDP header and collect IP informations
-static struct net_packet fill_packet_info(struct sk_buff *skb, struct iphdr *ip_header) {
-	struct net_packet pkt;
+// TCP/UDP informations
+static struct net_packet fill_transport_info(struct sk_buff *skb, struct net_packet *pkt) {
 	struct tcphdr *tcp_header;
-	struct udphdr *udp_header;
+        struct udphdr *udp_header;
+        
+	switch(pkt->protocol) {
+                case IPPROTO_TCP:
+                        tcp_header = tcp_hdr(skb);
+                        memcpy(&pkt->transport.tcph, tcp_header, sizeof(struct tcphdr));
+                //      fill_http_info(skb, tcp_header, &pkt);
+                        break;
+                case IPPROTO_UDP:
+                        udp_header = udp_hdr(skb);
+                        memcpy(&pkt->transport.udph, udp_header, sizeof(struct udphdr));
+                        break;
+        }
+
+	return *pkt;
+}
+
+// TODO add support for IPv6
+// collect IP & generic informations
+static struct net_packet fill_packet_info(struct sk_buff *skb) {
+	struct net_packet pkt;
+	struct iphdr *ip_header;
 	struct timespec64 ts;
 
+	ip_header = ip_hdr(skb);
 	ts = ktime_to_timespec64(skb->tstamp);
 
 	pkt.skb_len = skb->len;
@@ -149,17 +170,7 @@ static struct net_packet fill_packet_info(struct sk_buff *skb, struct iphdr *ip_
 
 	memcpy(&pkt.network.ipv4h, ip_header, sizeof(struct iphdr));	
 
-	switch(pkt.protocol) {
-		case IPPROTO_TCP:
-			tcp_header = tcp_hdr(skb);
-			memcpy(&pkt.transport.tcph, tcp_header, sizeof(struct tcphdr));
-		//	fill_http_info(skb, tcp_header, &pkt);
-			break;
-		case IPPROTO_UDP:
-			udp_header = udp_hdr(skb);
-			memcpy(&pkt.transport.udph, udp_header, sizeof(struct udphdr));
-			break;
-	}
+	fill_transport_info(skb, &pkt);
 
 	return pkt;
 }
@@ -174,7 +185,6 @@ static struct net_packet fill_packet_info(struct sk_buff *skb, struct iphdr *ip_
  *
  */
 static unsigned int capture(void *priv, struct sk_buff *skb, const struct nf_hook_state *state) {
-	struct iphdr *ip_header;
 	struct net_packet pkt;
 	unsigned long flags;
 
@@ -182,9 +192,7 @@ static unsigned int capture(void *priv, struct sk_buff *skb, const struct nf_hoo
 		return NF_ACCEPT;
 	}
 
-	ip_header = ip_hdr(skb);
-	
-	pkt = fill_packet_info(skb, ip_header);
+	pkt = fill_packet_info(skb);
 
 	spin_lock_irqsave(&buffer_spinlock, flags);
 
@@ -194,7 +202,8 @@ static unsigned int capture(void *priv, struct sk_buff *skb, const struct nf_hoo
 		spin_unlock_irqrestore(&buffer_spinlock, flags);
 		wake_up_interruptible(&wait_queue);
 	}
-	else {
+	else { 
+		// TODO BUG: when the buffer is full, the collected packet is lost... should be placed in the array
 		pr_info("packet_sniffer: Buffer is full, reset buffer...");
 		memset(buffer, 0, BUFFER_SIZE);
 		packet_index = 0;
