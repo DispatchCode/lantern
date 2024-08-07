@@ -147,17 +147,17 @@ static struct net_packet fill_packet_info(struct sk_buff *skb, struct iphdr *ip_
 	pkt.timestamp_sec = ts.tv_sec;
 	pkt.timestamp_nsec = ts.tv_nsec;
 
-	memcpy(&pkt.network, ip_header, sizeof(struct iphdr));	
+	memcpy(&pkt.network.ipv4h, ip_header, sizeof(struct iphdr));	
 
 	switch(pkt.protocol) {
 		case IPPROTO_TCP:
 			tcp_header = tcp_hdr(skb);
-			memcpy(&pkt.transport, tcp_header, sizeof(struct tcphdr));
-			fill_http_info(skb, tcp_header, &pkt);
+			memcpy(&pkt.transport.tcph, tcp_header, sizeof(struct tcphdr));
+		//	fill_http_info(skb, tcp_header, &pkt);
 			break;
 		case IPPROTO_UDP:
 			udp_header = udp_hdr(skb);
-			memcpy(&pkt.transport, udp_header, sizeof(struct udphdr));
+			memcpy(&pkt.transport.udph, udp_header, sizeof(struct udphdr));
 			break;
 	}
 
