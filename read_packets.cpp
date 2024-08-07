@@ -121,11 +121,15 @@ void PacketReaderWindow::StartPacketReader()
 	Bind(wxEVT_THREAD, [this](wxThreadEvent&) {
 		std::lock_guard<std::mutex> lock(packetMutex);
 		const Packet& pkt = packets.back();
-		long index = listCtrl->InsertItem(listCtrl->GetItemCount(), pkt.GetSourceIP());
-		listCtrl->SetItem(index, 1, pkt.GetDestIP());
-		listCtrl->SetItem(index, 2, pkt.GetTimestamp());
-		listCtrl->SetItem(index, 3, pkt.GetProtocol());
-		listCtrl->SetItem(index, 4, pkt.GetLength());
+		wxString buffer_size;
+		buffer_size << packets.size();
+
+		long index = listCtrl->InsertItem(listCtrl->GetItemCount(), buffer_size);
+		listCtrl->SetItem(index, 1, pkt.GetSourceIP());
+		listCtrl->SetItem(index, 2, pkt.GetDestIP());
+		listCtrl->SetItem(index, 3, pkt.GetTimestamp());
+		listCtrl->SetItem(index, 4, pkt.GetProtocol());
+		listCtrl->SetItem(index, 5, pkt.GetLength());
 	});
 } 
 
@@ -150,13 +154,12 @@ PacketReaderWindow::PacketReaderWindow(const wxString& title) : wxFrame(NULL, wx
 	wxBoxSizer *box = new wxBoxSizer(wxVERTICAL);
 
 	listCtrl = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxSize(-1,-1), wxLC_REPORT | wxLC_SINGLE_SEL | wxBORDER_SUNKEN);
-	listCtrl->InsertColumn(0, "Source IP", wxLIST_FORMAT_LEFT, 150);
-	listCtrl->InsertColumn(1, "Destination IP", wxLIST_FORMAT_LEFT, 150);
-	listCtrl->InsertColumn(2, "Timestamp", wxLIST_FORMAT_LEFT, 200);
-	listCtrl->InsertColumn(3, "Protocol", wxLIST_FORMAT_LEFT, 80);
-	listCtrl->InsertColumn(4, "Length", wxLIST_FORMAT_LEFT, 100);
-	listCtrl->InsertColumn(5, "Request Method", wxLIST_FORMAT_LEFT, 250);
-	listCtrl->InsertColumn(6, "Host", wxLIST_FORMAT_LEFT, 300);
+	listCtrl->InsertColumn(0, "Pkt #", wxLIST_FORMAT_LEFT, 75);
+	listCtrl->InsertColumn(1, "Source IP", wxLIST_FORMAT_LEFT, 150);
+	listCtrl->InsertColumn(2, "Destination IP", wxLIST_FORMAT_LEFT, 150);
+	listCtrl->InsertColumn(3, "Timestamp", wxLIST_FORMAT_LEFT, 200);
+	listCtrl->InsertColumn(4, "Protocol", wxLIST_FORMAT_LEFT, 80);
+	listCtrl->InsertColumn(5, "Length", wxLIST_FORMAT_LEFT, 100);
 
 	wxBoxSizer *info = new wxBoxSizer(wxVERTICAL);
 	
