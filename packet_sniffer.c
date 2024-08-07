@@ -168,7 +168,7 @@ static unsigned int capture(void *priv, struct sk_buff *skb, const struct nf_hoo
 
 	if(unlikely(packet_index >= BUFFER_SIZE)) {
 		pr_info("packet_sniffer: Buffer is full, reset buffer...");
-		memset(buffer, 0, BUFFER_SIZE);
+		//memset(buffer, 0, BUFFER_SIZE);
 		packet_index = 0;
 	}	
 		
