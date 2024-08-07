@@ -7,7 +7,7 @@
 #include <linux/udp.h>
 
 #define DEVICE_NAME "packet_sniffer"
-#define BUFFER_SIZE  4096
+#define BUFFER_SIZE  1024
 
 #define HTTP_METHOD_SIZE 8
 #define HTTP_BODY_SIZE   1024
