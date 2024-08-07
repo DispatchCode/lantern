@@ -103,36 +103,6 @@ static ssize_t device_read(struct file *file, char __user *user_buffer, size_t l
 	return size_to_copy;
 }
 
-static void fill_http_info(struct sk_buff *skb, struct tcphdr *tcp,  struct net_packet *pkt) {
-	char *data = (char*)((unsigned char*) tcp + (tcp->doff << 2));
-	int data_len = skb->len - ((unsigned char*)data - (unsigned char*) ip_hdr(skb));
-
-	if(data_len <= 0) {
-		return;
-	}
-
-	pr_info("fill_http_info\n");
-	if(strncmp(data, "GET", 3) == 0 || strncmp(data, "POST", 4) == 0) {
-		sscanf(data, "%7s", pkt->http_method);
-		pr_info("REQUEST METHOD: %s", pkt->http_method);	
-		char *host_ptr = strnstr(data, "Host:", data_len);
-		if(host_ptr) {
-			sscanf(host_ptr, "Host: %255s", pkt->hostname);
-		}
-
-		char *length_ptr = strnstr(data, "Content-Length:", data_len);
-		if(length_ptr) {
-			sscanf(length_ptr, "Content-Length: %d", &pkt->length);
-		}
-
-		char *body_ptr = strnstr(data, "\r\n\r\n", data_len);
-		if(body_ptr) {
-			body_ptr += 4;
-			strncpy(pkt->http_body, body_ptr, min(HTTP_BODY_SIZE, data_len - (body_ptr - data)));
-		}
-	}
-}
-
 // TCP/UDP informations
 static struct net_packet fill_transport_info(struct sk_buff *skb, struct net_packet *pkt) {
 	struct tcphdr *tcp_header;
@@ -264,6 +234,7 @@ static int __init packet_sniffer_init(void) {
 	}
 
 	pr_info("packet_sniffer: Module loaded\n");
+	pr_info("Allocated buffer of net_packet of size: %lu bytes", sizeof(buffer));
 
 	return 0;
 

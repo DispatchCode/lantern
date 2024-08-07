@@ -20,13 +20,13 @@
 
 class Packet {
 public:
-    uint64_t timestamp_sec;
-    uint64_t timestamp_nsec;
+	uint64_t timestamp_sec;
+	uint64_t timestamp_nsec;
 	
 	union {
 		struct iphdr ip4;
 		struct ipv6hdr ip6;
-    } network;
+	} network;
 	
 
 	union {
@@ -35,11 +35,8 @@ public:
 	} transport;
 
 	int protocol;
-	char http_method[HTTP_METHOD_SIZE];
-    char http_body[HTTP_BODY_SIZE];
-    char hostname[HOSTNAME_SIZE];
-    int length;
-    int skb_len;
+	int length;
+	int skb_len;
 	
 	Packet(const struct net_packet& packet);
 
@@ -50,25 +47,24 @@ public:
 	uint16_t GetSourcePort() const;
 	uint16_t GetDestPort() const;
 	wxString GetTimestamp() const;
-	wxString GetRequestMethod() const;
 };
 
 
 class PacketReader : public wxApp
 {
 public:
-    // application startup, Wx
-    virtual bool OnInit();
+	// application startup, Wx
+	virtual bool OnInit();
 };
 
 class PacketReaderWindow : public wxFrame
 {
 public:
-    PacketReaderWindow(const wxString& title);
+	PacketReaderWindow(const wxString& title);
 	//~PacketReaderWindow();
 
-    void OnQuit(wxCommandEvent& event);
-    void OnAbout(wxCommandEvent& event);
+	void OnQuit(wxCommandEvent& event);
+	void OnAbout(wxCommandEvent& event);
 	void OnSize(wxCommandEvent& event);
 	void OnMouseDownEvent(wxListEvent& event);
 private:
@@ -78,17 +74,17 @@ private:
 	wxListCtrl *infoList;    
 
 	std::vector<Packet> packets;
-    std::mutex packetMutex;
-    std::thread readerThread;
-    bool running;
+    	std::mutex packetMutex;
+    	std::thread readerThread;
+    	bool running;
     
 	// Defined as an event class
-    DECLARE_EVENT_TABLE()
+    	DECLARE_EVENT_TABLE()
 };
 
 BEGIN_EVENT_TABLE(PacketReaderWindow, wxFrame)
-    EVT_MENU(wxID_ABOUT, PacketReaderWindow::OnAbout)
-    EVT_MENU(wxID_EXIT, PacketReaderWindow::OnQuit)
+	EVT_MENU(wxID_ABOUT, PacketReaderWindow::OnAbout)
+	EVT_MENU(wxID_EXIT, PacketReaderWindow::OnQuit)
 END_EVENT_TABLE()
 
 DECLARE_APP(PacketReader);

@@ -79,7 +79,7 @@ void PacketReaderWindow::OnAbout(wxCommandEvent& event)
 void PacketReaderWindow::OnQuit(wxCommandEvent& event)
 {	
 	running = false;
-	Close();
+	Close(true);
 }
 
 void PacketReaderWindow::OnMouseDownEvent(wxListEvent& event)
