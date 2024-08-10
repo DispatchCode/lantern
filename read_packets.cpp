@@ -1,65 +1,9 @@
 #include "read_packets.hpp"
 #include "packet_sniffer.h"
+#include "packets_util.hpp"
+
 
 #define DEVICE_FILE "/dev/packet_sniffer"
-
-
-Packet::Packet(const struct net_packet& pkt)
-{
-	timestamp_sec = pkt.timestamp_sec;
-	timestamp_nsec = pkt.timestamp_nsec;
-	memcpy(&network, &pkt.network, sizeof(network));
-	memcpy(&transport, &pkt.transport, sizeof(transport));
-	protocol = pkt.protocol;
-	skb_len = pkt.skb_len;
-	cpu_id = pkt.cpu_id;
-}
-
-wxString Packet::GetLength() const
-{	
-	wxString skb_len_str;
-	skb_len_str << skb_len;
-	return skb_len_str;
-}
-
-wxString Packet::GetSourceIP() const 
-{
-	char src[INET6_ADDRSTRLEN];
-	if(protocol == IPPROTO_TCP || protocol == IPPROTO_UDP) {
-		inet_ntop(AF_INET, &network.ip4.saddr, src, INET_ADDRSTRLEN);
-	}
-	else {
-		inet_ntop(AF_INET6, &network.ip6.saddr, src, INET6_ADDRSTRLEN);
-	}
-
-	return wxString::FromAscii(src);
-}
-
-wxString Packet::GetDestIP() const
-{
-	char dst[INET6_ADDRSTRLEN];
-    if (protocol == IPPROTO_TCP || protocol == IPPROTO_UDP) {
-    	inet_ntop(AF_INET, &network.ip4.daddr, dst, INET_ADDRSTRLEN);
-    } else {
-        inet_ntop(AF_INET6, &network.ip6.daddr, dst, INET6_ADDRSTRLEN);
-    }
-    return wxString::FromAscii(dst);
-}
-
-wxString Packet::GetProtocol() const {
-	switch(protocol) {
-		case IPPROTO_TCP : return "TCP";
-		case IPPROTO_UDP : return "UDP";
-		default: return "OTHER";
-	}
-}
-wxString Packet::GetTimestamp() const {
-    time_t timestamp = static_cast<time_t>(timestamp_sec);
-    struct tm *tm_info = localtime(&timestamp);
-    char time_buf[64];
-    strftime(time_buf, sizeof(time_buf), "%d/%m/%Y %H:%M:%S", tm_info);
-    return wxString::Format("%s.%03lu", time_buf, timestamp_nsec / 1000000);
-}
 
 bool PacketReader::OnInit()
 {
@@ -88,9 +32,9 @@ void PacketReaderWindow::OnMouseDownEvent(wxListEvent& event)
 	int index = event.GetItem();
 	if(index < packets.size())
 	{
-		const Packet& pkt = packets[index];
+		struct net_packet pkt = packets[index];
 		infoList->DeleteAllItems(); // TODO find a better way
-		infoList->InsertItem(0, pkt.GetProtocol());
+		infoList->InsertItem(0, pkt.protocol);
 	}
 }
 
@@ -121,20 +65,25 @@ void PacketReaderWindow::StartPacketReader()
 
 	Bind(wxEVT_THREAD, [this](wxThreadEvent&) {
 		std::lock_guard<std::mutex> lock(packetMutex);
-		const Packet& pkt = packets.back();
+		struct net_packet pkt = packets.back();
+		
 		wxString buffer_size;
 		buffer_size << packets.size();
 
-		wxString cpuid_str;
-		cpuid_str << pkt.cpu_id;
+		wxString cpuid_str = pkt_get_cpuid(pkt);
+ 		wxString skb_len_str = pkt_get_len(pkt);
+		wxString src = pkt_ip2str(pkt, true);
+		wxString dst = pkt_ip2str(pkt, false);
+		wxString protocol = pkt_get_protocol(pkt);;
+		wxString timestamp = pkt_get_time(pkt);
 
 		long index = listCtrl->InsertItem(listCtrl->GetItemCount(), buffer_size);
 		listCtrl->SetItem(index, 1, cpuid_str);
-		listCtrl->SetItem(index, 2, pkt.GetSourceIP());
-		listCtrl->SetItem(index, 3, pkt.GetDestIP());
-		listCtrl->SetItem(index, 4, pkt.GetTimestamp());
-		listCtrl->SetItem(index, 5, pkt.GetProtocol());
-		listCtrl->SetItem(index, 6, pkt.GetLength());
+		listCtrl->SetItem(index, 2, src);
+		listCtrl->SetItem(index, 3, dst);
+		listCtrl->SetItem(index, 4, timestamp);
+		listCtrl->SetItem(index, 5, protocol);
+		listCtrl->SetItem(index, 6, skb_len_str);
 	});
 } 
 
@@ -182,5 +131,3 @@ PacketReaderWindow::PacketReaderWindow(const wxString& title) : wxFrame(NULL, wx
 
 	StartPacketReader();
 }
-
-

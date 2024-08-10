@@ -1,7 +1,7 @@
 #ifndef PACKET_READER_H
 #define PACKET_READER_H
 
-#include "wx/wx.h"
+#include <wx/wx.h>
 #include <wx/listctrl.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -14,40 +14,11 @@
 #include <linux/tcp.h>    
 #include <linux/udp.h>
 
+#include "packet_sniffer.h"
+
 #define HTTP_METHOD_SIZE 8
 #define HTTP_BODY_SIZE   1024
 #define HOSTNAME_SIZE    256
-
-class Packet {
-public:
-	uint64_t timestamp_sec;
-	uint64_t timestamp_nsec;
-	
-	union {
-		struct iphdr ip4;
-		struct ipv6hdr ip6;
-	} network;
-	
-
-	union {
-		struct tcphdr tcp;
-		struct udphdr udp;
-	} transport;
-
-	int protocol;
-	int length;
-	int skb_len;
-	int cpu_id;	
-	Packet(const struct net_packet& packet);
-
-	wxString GetLength() const;
-	wxString GetSourceIP() const;
-	wxString GetDestIP() const;
-	wxString GetProtocol() const;
-	uint16_t GetSourcePort() const;
-	uint16_t GetDestPort() const;
-	wxString GetTimestamp() const;
-};
 
 
 class PacketReader : public wxApp
@@ -73,13 +44,13 @@ private:
 	wxListCtrl *listCtrl;
 	wxListCtrl *infoList;    
 
-	std::vector<Packet> packets;
-    	std::mutex packetMutex;
-    	std::thread readerThread;
-    	bool running;
+	std::vector<net_packet> packets;
+    std::mutex packetMutex;
+    std::thread readerThread;
+    bool running;
     
 	// Defined as an event class
-    	DECLARE_EVENT_TABLE()
+    DECLARE_EVENT_TABLE()
 };
 
 BEGIN_EVENT_TABLE(PacketReaderWindow, wxFrame)
