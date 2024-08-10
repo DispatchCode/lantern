@@ -2,8 +2,21 @@
 #include "packet_sniffer.h"
 #include "packets_util.hpp"
 
+#include <iostream>
 
 #define DEVICE_FILE "/dev/packet_sniffer"
+
+inline wxColour color_by_protocol(int protocol) {
+	switch(protocol) {
+
+		case IPPROTO_TCP:
+			return wxColour(203, 245, 221);
+		case IPPROTO_UDP:
+			return wxColour(213, 255, 255);
+    }
+
+	return wxColour(255,255,255);
+}
 
 bool PacketReader::OnInit()
 {
@@ -88,6 +101,8 @@ void PacketReaderWindow::StartPacketReader()
 		listCtrl->SetItem(index, 4, timestamp);
 		listCtrl->SetItem(index, 5, protocol);
 		listCtrl->SetItem(index, 6, skb_len_str);
+		
+		listCtrl->SetItemBackgroundColour(index, color_by_protocol(pkt.protocol));
 	});
 } 
 

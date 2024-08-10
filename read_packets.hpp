@@ -3,6 +3,8 @@
 
 #include <wx/wx.h>
 #include <wx/listctrl.h>
+#include <wx/colour.h>
+
 #include <fcntl.h>
 #include <unistd.h>
 #include <arpa/inet.h>
