@@ -64,9 +64,13 @@ void PacketReaderWindow::StartPacketReader()
 	});
 
 	Bind(wxEVT_THREAD, [this](wxThreadEvent&) {
-		std::lock_guard<std::mutex> lock(packetMutex);
-		struct net_packet pkt = packets.back();
-		
+		struct net_packet pkt;	
+	
+		{
+			std::lock_guard<std::mutex> lock(packetMutex);
+			pkt = packets.back();
+		}
+
 		wxString buffer_size;
 		buffer_size << packets.size();
 
