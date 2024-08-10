@@ -37,6 +37,7 @@ struct net_packet {
 	//char hostname[HOSTNAME_SIZE];
 	int length;
 	int skb_len;
+	int cpu_id;
 }  __attribute__ ((aligned));
 
 #endif

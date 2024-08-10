@@ -37,7 +37,7 @@ public:
 	int protocol;
 	int length;
 	int skb_len;
-	
+	int cpu_id;	
 	Packet(const struct net_packet& packet);
 
 	wxString GetLength() const;

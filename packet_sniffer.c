@@ -14,6 +14,8 @@
 #include <linux/version.h>
 #include <linux/uaccess.h>
 #include <linux/ktime.h>
+#include <linux/preempt.h>
+#include <linux/smp.h>
 
 #include "packet_sniffer.h"
 
@@ -163,6 +165,7 @@ static unsigned int capture(void *priv, struct sk_buff *skb, const struct nf_hoo
 	}
 
 	pkt = fill_packet_info(skb);
+	pkt.cpu_id = smp_processor_id();
 
 	spin_lock_irqsave(&buffer_spinlock, flags);
 
