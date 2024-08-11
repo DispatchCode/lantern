@@ -5,6 +5,7 @@
 #include <wx/listctrl.h>
 #include <wx/colour.h>
 
+#include <tuple>
 #include <fcntl.h>
 #include <unistd.h>
 #include <arpa/inet.h>

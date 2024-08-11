@@ -87,20 +87,23 @@ void PacketReaderWindow::StartPacketReader()
 		wxString buffer_size;
 		buffer_size << packets.size();
 
-		wxString cpuid_str = pkt_get_cpuid(pkt);
+		wxString cpuid_str   = pkt_get_cpuid(pkt);
  		wxString skb_len_str = pkt_get_len(pkt);
-		wxString src = pkt_ip2str(pkt, true);
-		wxString dst = pkt_ip2str(pkt, false);
-		wxString protocol = pkt_get_protocol(pkt);;
-		wxString timestamp = pkt_get_time(pkt);
+		wxString src 		 = pkt_ip2str(pkt, true);
+		wxString dst 		 = pkt_ip2str(pkt, false);
+		wxString protocol 	 = pkt_get_protocol(pkt);;
+		wxString timestamp 	 = pkt_get_time(pkt);
+		auto [src_port, dst_port] = pkt_get_ports(pkt);
 
 		long index = listCtrl->InsertItem(listCtrl->GetItemCount(), buffer_size);
 		listCtrl->SetItem(index, 1, cpuid_str);
 		listCtrl->SetItem(index, 2, src);
 		listCtrl->SetItem(index, 3, dst);
-		listCtrl->SetItem(index, 4, timestamp);
-		listCtrl->SetItem(index, 5, protocol);
-		listCtrl->SetItem(index, 6, skb_len_str);
+		listCtrl->SetItem(index, 4, src_port);
+		listCtrl->SetItem(index, 5, dst_port);
+		listCtrl->SetItem(index, 6, timestamp);
+		listCtrl->SetItem(index, 7, protocol);
+		listCtrl->SetItem(index, 8, skb_len_str);
 		
 		listCtrl->SetItemBackgroundColour(index, color_by_protocol(pkt.protocol));
 	});
@@ -128,12 +131,14 @@ PacketReaderWindow::PacketReaderWindow(const wxString& title) : wxFrame(NULL, wx
 
 	listCtrl = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxSize(-1,-1), wxLC_REPORT | wxLC_SINGLE_SEL | wxBORDER_SUNKEN);
 	listCtrl->InsertColumn(0, "Pkt #", wxLIST_FORMAT_LEFT, 75);
-	listCtrl->InsertColumn(1, "CPU#", wxLIST_FORMAT_LEFT, 40);	
+	listCtrl->InsertColumn(1, "CPU #", wxLIST_FORMAT_LEFT, 50);	
 	listCtrl->InsertColumn(2, "Source IP", wxLIST_FORMAT_LEFT, 150);
 	listCtrl->InsertColumn(3, "Destination IP", wxLIST_FORMAT_LEFT, 150);
-	listCtrl->InsertColumn(4, "Timestamp", wxLIST_FORMAT_LEFT, 200);
-	listCtrl->InsertColumn(5, "Protocol", wxLIST_FORMAT_LEFT, 80);
-	listCtrl->InsertColumn(6, "Length", wxLIST_FORMAT_LEFT, 100);
+	listCtrl->InsertColumn(4, "Src Port", wxLIST_FORMAT_LEFT, 55);
+	listCtrl->InsertColumn(5, "Dst Port", wxLIST_FORMAT_LEFT, 55);
+	listCtrl->InsertColumn(6, "Timestamp", wxLIST_FORMAT_LEFT, 200);
+	listCtrl->InsertColumn(7, "Protocol", wxLIST_FORMAT_LEFT, 80);
+	listCtrl->InsertColumn(8, "Length", wxLIST_FORMAT_LEFT, 100);
 
 	wxBoxSizer *info = new wxBoxSizer(wxVERTICAL);
 	

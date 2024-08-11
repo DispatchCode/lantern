@@ -3,7 +3,12 @@
 
 #include <wx/wx.h>
 #include <wx/string.h>
+#include <tuple>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <string>
 
+#include <iostream>
 
 inline wxString pkt_get_cpuid(struct net_packet& pkt) {
 	wxString cpuid_str;
@@ -43,6 +48,24 @@ inline wxString pkt_get_time(struct net_packet& pkt) {
 	char time_buf[64];
 	strftime(time_buf, sizeof(time_buf), "%d/%m/%Y %H:%M:%S", tm_info);
 	return wxString::Format("%s.%03lu", time_buf, pkt.timestamp_nsec / 1000000);
+}
+
+inline std::tuple<wxString, wxString> pkt_get_ports(struct net_packet& pkt) {
+	wxString src_port, dst_port;
+
+	if(pkt.protocol == IPPROTO_TCP) {
+		src_port << pkt.transport.tcph.source;
+		dst_port << pkt.transport.tcph.dest;
+		return {src_port, dst_port};
+	}
+
+	if(pkt.protocol == IPPROTO_UDP) {
+		src_port << pkt.transport.udph.source;
+		dst_port << pkt.transport.udph.dest;
+		return {src_port, dst_port};
+	}
+
+	return {wxT(""), wxT("")};
 }
 
 #endif
