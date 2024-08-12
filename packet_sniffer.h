@@ -3,6 +3,7 @@
 
 #include <linux/ip.h>
 #include <linux/ipv6.h>
+#include <linux/igmp.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
 
@@ -23,6 +24,7 @@ struct net_packet {
 	union {
 		struct tcphdr tcph;
 		struct udphdr udph;
+		struct igmphdr igmph;
 	} transport;
 
 	union {

@@ -108,19 +108,24 @@ static ssize_t device_read(struct file *file, char __user *user_buffer, size_t l
 // TCP/UDP informations
 static struct net_packet fill_transport_info(struct sk_buff *skb, struct net_packet *pkt) {
 	struct tcphdr *tcp_header;
-        struct udphdr *udp_header;
-        
+	struct udphdr *udp_header;
+	struct igmphdr *igmp_header;
+    
 	switch(pkt->protocol) {
-                case IPPROTO_TCP:
-                        tcp_header = tcp_hdr(skb);
-                        memcpy(&pkt->transport.tcph, tcp_header, sizeof(struct tcphdr));
-                //      fill_http_info(skb, tcp_header, &pkt);
-                        break;
-                case IPPROTO_UDP:
-                        udp_header = udp_hdr(skb);
-                        memcpy(&pkt->transport.udph, udp_header, sizeof(struct udphdr));
-                        break;
-        }
+		case IPPROTO_IGMP:
+			igmp_header = igmp_hdr(skb);
+			memcpy(&pkt->transport.igmph, igmp_header, sizeof(struct igmphdr));
+		break;
+		case IPPROTO_TCP:
+			tcp_header = tcp_hdr(skb);
+			memcpy(&pkt->transport.tcph, tcp_header, sizeof(struct tcphdr));
+			//      fill_http_info(skb, tcp_header, &pkt);
+		break;
+		case IPPROTO_UDP:
+			udp_header = udp_hdr(skb);
+			memcpy(&pkt->transport.udph, udp_header, sizeof(struct udphdr));
+			break;
+	}
 
 	return *pkt;
 }
