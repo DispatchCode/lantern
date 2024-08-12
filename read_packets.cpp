@@ -46,8 +46,8 @@ void PacketReaderWindow::OnMouseDownEvent(wxListEvent& event)
 	if(index < packets.size())
 	{
 		struct net_packet pkt = packets[index];
-		infoList->DeleteAllItems(); // TODO find a better way
-		infoList->InsertItem(0, pkt.protocol);
+		detailsList->DeleteAllItems(); // TODO find a better way
+		detailsList->InsertItem(0, pkt_get_protocol(pkt));
 	}
 }
 
@@ -64,6 +64,7 @@ void PacketReaderWindow::StartPacketReader()
 		
 		while(running)
 		{
+			// TODO read multiple packets, dispatch to many threads (?)
 			struct net_packet pkt;
 			ssize_t bytes_read = read(fd, &pkt, sizeof(struct net_packet));
 			if(bytes_read > 0) {
@@ -95,23 +96,24 @@ void PacketReaderWindow::StartPacketReader()
 		wxString timestamp 	 = pkt_get_time(pkt);
 		auto [src_port, dst_port] = pkt_get_ports(pkt);
 
-		long index = listCtrl->InsertItem(listCtrl->GetItemCount(), buffer_size);
-		listCtrl->SetItem(index, 1, cpuid_str);
-		listCtrl->SetItem(index, 2, src);
-		listCtrl->SetItem(index, 3, dst);
-		listCtrl->SetItem(index, 4, src_port);
-		listCtrl->SetItem(index, 5, dst_port);
-		listCtrl->SetItem(index, 6, timestamp);
-		listCtrl->SetItem(index, 7, protocol);
-		listCtrl->SetItem(index, 8, skb_len_str);
+		long index = pktList->InsertItem(pktList->GetItemCount(), buffer_size);
+		pktList->SetItem(index, 1, cpuid_str);
+		pktList->SetItem(index, 2, src);
+		pktList->SetItem(index, 3, dst);
+		pktList->SetItem(index, 4, src_port);
+		pktList->SetItem(index, 5, dst_port);
+		pktList->SetItem(index, 6, timestamp);
+		pktList->SetItem(index, 7, protocol);
+		pktList->SetItem(index, 8, skb_len_str);
 		
-		listCtrl->SetItemBackgroundColour(index, color_by_protocol(pkt.protocol));
+		pktList->SetItemBackgroundColour(index, color_by_protocol(pkt.protocol));
 	});
 } 
 
 
 PacketReaderWindow::PacketReaderWindow(const wxString& title) : wxFrame(NULL, wxID_ANY, title)
 {
+	/* MENU */
 	wxMenu *fileMenu = new wxMenu;
 	wxMenu *helpMenu = new wxMenu;
 
@@ -123,35 +125,52 @@ PacketReaderWindow::PacketReaderWindow(const wxString& title) : wxFrame(NULL, wx
 	menuBar->Append(helpMenu, wxT("&Help"));
 
 	SetMenuBar(menuBar);
-
+	
+	/* STATUS BAR */
 	CreateStatusBar(2);
 	SetStatusText(wxT("Packet Sniffer"));
 
-	wxBoxSizer *box = new wxBoxSizer(wxVERTICAL);
+	/* WINDOW CONTENT */
+	wxBoxSizer *contSizer = new wxBoxSizer(wxVERTICAL);
 
-	listCtrl = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxSize(-1,-1), wxLC_REPORT | wxLC_SINGLE_SEL | wxBORDER_SUNKEN);
-	listCtrl->InsertColumn(0, "Pkt #", wxLIST_FORMAT_LEFT, 75);
-	listCtrl->InsertColumn(1, "CPU #", wxLIST_FORMAT_LEFT, 50);	
-	listCtrl->InsertColumn(2, "Source IP", wxLIST_FORMAT_LEFT, 150);
-	listCtrl->InsertColumn(3, "Destination IP", wxLIST_FORMAT_LEFT, 150);
-	listCtrl->InsertColumn(4, "Src Port", wxLIST_FORMAT_LEFT, 55);
-	listCtrl->InsertColumn(5, "Dst Port", wxLIST_FORMAT_LEFT, 55);
-	listCtrl->InsertColumn(6, "Timestamp", wxLIST_FORMAT_LEFT, 200);
-	listCtrl->InsertColumn(7, "Protocol", wxLIST_FORMAT_LEFT, 80);
-	listCtrl->InsertColumn(8, "Length", wxLIST_FORMAT_LEFT, 100);
-
-	wxBoxSizer *info = new wxBoxSizer(wxVERTICAL);
+	wxSplitterWindow *splitter = new wxSplitterWindow(this, wxID_ANY);
 	
-	infoList = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxSize(-1,-1), wxLC_REPORT);
-	infoList->InsertColumn(0, "Packet Information", wxLIST_FORMAT_LEFT, 550);
-	infoList->InsertItem(0,wxT(""));
+	// packet and detail panels
+	wxPanel *packetsPanel = new wxPanel(splitter, wxID_ANY);
+	wxPanel *detailsPanel = new wxPanel(splitter, wxID_ANY);	
 
-	listCtrl->Bind(wxEVT_LIST_ITEM_SELECTED, &PacketReaderWindow::OnMouseDownEvent, this);
+	// top panel used to show packets
+	pktList = new wxListCtrl(packetsPanel, wxID_ANY, wxDefaultPosition, wxSize(-1,-1), wxLC_REPORT | wxLC_SINGLE_SEL | wxBORDER_SUNKEN);
+	pktList->InsertColumn(0, "Pkt #", wxLIST_FORMAT_LEFT);
+	pktList->InsertColumn(1, "CPU #", wxLIST_FORMAT_LEFT);	
+	pktList->InsertColumn(2, "Source IP", wxLIST_FORMAT_LEFT, 200);
+	pktList->InsertColumn(3, "Destination IP", wxLIST_FORMAT_LEFT, 200);
+	pktList->InsertColumn(4, "Src Port", wxLIST_FORMAT_LEFT);
+	pktList->InsertColumn(5, "Dst Port", wxLIST_FORMAT_LEFT);
+	pktList->InsertColumn(6, "Timestamp", wxLIST_FORMAT_LEFT, 200);
+	pktList->InsertColumn(7, "Protocol", wxLIST_FORMAT_LEFT);
+	pktList->InsertColumn(8, "Length", wxLIST_FORMAT_LEFT);
 	
-	box->Add(listCtrl, 1, wxEXPAND | wxALL, 5);
-	box->Add(infoList, 1, wxEXPAND | wxALL, 5);
+	wxBoxSizer *pktListSizer = new wxBoxSizer(wxVERTICAL);
+	pktListSizer->Add(pktList, 1, wxEXPAND | wxALL, 5);
+	packetsPanel->SetSizer(pktListSizer);
+	
+	// bottom panel, used to show details
+	detailsList = new wxListCtrl(detailsPanel, wxID_ANY, wxDefaultPosition, wxSize(-1,-1), wxLC_REPORT);
+	detailsList->InsertColumn(0, "Packet Information", wxLIST_FORMAT_LEFT, 550);
+	detailsList->InsertItem(0,wxT(""));
+	
+	wxBoxSizer *detailSizer = new wxBoxSizer(wxVERTICAL);
+	detailSizer->Add(detailsList, 1, wxEXPAND | wxALL, 5);
+	detailsPanel->SetSizer(detailSizer);
 
-	SetSizer(box);
+	splitter->SplitHorizontally(packetsPanel, detailsPanel, (int)(0.95 * GetSize().GetHeight()));
 
+	contSizer->Add(splitter, 1, wxEXPAND);
+	SetSizerAndFit(contSizer);
+
+	/* LIST(S) EVENTS */
+	pktList->Bind(wxEVT_LIST_ITEM_SELECTED, &PacketReaderWindow::OnMouseDownEvent, this);
+	
 	StartPacketReader();
 }

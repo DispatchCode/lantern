@@ -3,6 +3,7 @@
 
 #include <wx/wx.h>
 #include <wx/listctrl.h>
+#include <wx/splitter.h>
 #include <wx/colour.h>
 
 #include <tuple>
@@ -44,8 +45,8 @@ public:
 private:
 	void StartPacketReader();
 
-	wxListCtrl *listCtrl;
-	wxListCtrl *infoList;    
+	wxListCtrl *pktList;
+	wxListCtrl *detailsList;    
 
 	std::vector<net_packet> packets;
     std::mutex packetMutex;
