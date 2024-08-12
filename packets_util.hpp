@@ -10,6 +10,10 @@
 
 #include <iostream>
 
+#define PROTO_STR(p, pkt) \
+	wxString::Format(p" (%d)", pkt.protocol);
+
+
 inline wxString pkt_get_cpuid(struct net_packet& pkt) {
 	wxString cpuid_str;
 	cpuid_str << pkt.cpu_id;
@@ -36,9 +40,10 @@ inline wxString pkt_ip2str(struct net_packet& pkt, int is_src) {
 
 inline wxString pkt_get_protocol(struct net_packet& pkt) {
 	switch(pkt.protocol) {
- 		case IPPROTO_TCP : return wxString("TCP");
-		case IPPROTO_UDP : return wxString("UDP");
-		default: return wxString("OTHER");
+		case IPPROTO_IGMP: return PROTO_STR("IGMP", pkt);
+ 		case IPPROTO_TCP : return PROTO_STR("TCP", pkt);
+		case IPPROTO_UDP : return PROTO_STR("UDP", pkt)
+		default: 		   return PROTO_STR("OTHER", pkt);
 	}
 }
 
