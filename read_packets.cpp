@@ -75,6 +75,13 @@ void PacketReaderWindow::OnMouseDownEvent(wxListEvent& event)
 				detailsTree->AppendItem(root, wxString::Format("check: %u", ntohs(pkt.transport.udph.check)));
 
 				detailsTree->Expand(root);
+			break;
+			}
+			case IPPROTO_IGMP:{
+				wxTreeItemId root = detailsTree->AddRoot("IGMP Header");
+				detailsTree->AppendItem(root, wxString::Format("type: %s", pkt_igmp_get_type(pkt)));
+
+				detailsTree->Expand(root);
 			}
 			break;
 

@@ -73,4 +73,21 @@ inline std::tuple<wxString, wxString> pkt_get_ports(struct net_packet& pkt) {
 	return {wxT(""), wxT("")};
 }
 
+inline wxString pkt_igmp_get_type(struct net_packet& pkt) {
+	switch(pkt.transport.igmph.type) {
+		case 0x11:
+			return wxT("Membership Query");
+		case 0x12:
+			return wxT("IGMPv1 Membership Report");
+		case 0x16:
+			return wxT("IGMPv2 Membership Report");
+		case 0x17:
+			return wxT("Leave Group");
+		case 0x22:
+			return wxT("IGMPv3 Membership Report");
+		default:
+			return wxT("invalid type");
+	}
+}
+
 #endif
