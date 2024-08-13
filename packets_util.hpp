@@ -26,16 +26,20 @@ inline wxString pkt_get_len(struct net_packet& pkt) {
 	return skb_len_str;
 }
 
-inline wxString pkt_ip2str(struct net_packet& pkt, int is_src) {
-	char ip[INET6_ADDRSTRLEN];
+inline std::tuple<wxString, wxString> pkt_get_ips(struct net_packet& pkt) {
+	char src[INET6_ADDRSTRLEN];
+	char dst[INET6_ADDRSTRLEN];
+
 	if(pkt.network.ipv4h.version == 4) {
-		inet_ntop(AF_INET, is_src ? &pkt.network.ipv4h.saddr : &pkt.network.ipv4h.daddr, ip, INET_ADDRSTRLEN);
+		inet_ntop(AF_INET, &pkt.network.ipv4h.saddr, src, INET_ADDRSTRLEN);
+		inet_ntop(AF_INET, &pkt.network.ipv4h.daddr, dst, INET_ADDRSTRLEN);
 	}
 	else {
-		inet_ntop(AF_INET6, is_src ? &pkt.network.ipv6h.saddr :  &pkt.network.ipv6h.daddr, ip, INET6_ADDRSTRLEN);
+		inet_ntop(AF_INET6, &pkt.network.ipv6h.saddr, src, INET6_ADDRSTRLEN);
+		inet_ntop(AF_INET6, &pkt.network.ipv6h.daddr, dst, INET6_ADDRSTRLEN);
 	}
 
-	return wxString::FromAscii(ip);
+	return {wxString::FromAscii(src), wxString::FromAscii(dst)};
 }
 
 inline wxString pkt_get_protocol(struct net_packet& pkt) {
@@ -56,21 +60,19 @@ inline wxString pkt_get_time(struct net_packet& pkt) {
 }
 
 inline std::tuple<wxString, wxString> pkt_get_ports(struct net_packet& pkt) {
-	wxString src_port, dst_port;
+	wxString src_port = wxT(""), dst_port = wxT("");
 
 	if(pkt.protocol == IPPROTO_TCP) {
 		src_port << pkt.transport.tcph.source;
 		dst_port << pkt.transport.tcph.dest;
-		return {src_port, dst_port};
 	}
 
 	if(pkt.protocol == IPPROTO_UDP) {
 		src_port << pkt.transport.udph.source;
 		dst_port << pkt.transport.udph.dest;
-		return {src_port, dst_port};
 	}
 
-	return {wxT(""), wxT("")};
+	return {src_port, dst_port};
 }
 
 inline wxString pkt_igmp_get_type(struct net_packet& pkt) {

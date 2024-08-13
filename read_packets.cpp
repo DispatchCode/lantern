@@ -127,10 +127,9 @@ void PacketReaderWindow::StartPacketReader()
 
 		wxString cpuid_str   = pkt_get_cpuid(pkt);
  		wxString skb_len_str = pkt_get_len(pkt);
-		wxString src 		 = pkt_ip2str(pkt, true);
-		wxString dst 		 = pkt_ip2str(pkt, false);
 		wxString protocol 	 = pkt_get_protocol(pkt);;
 		wxString timestamp 	 = pkt_get_time(pkt);
+		auto [src, dst] 	 = pkt_get_ips(pkt);
 		auto [src_port, dst_port] = pkt_get_ports(pkt);
 
 		long index = pktList->InsertItem(itemCount, wxString::Format("%d", itemCount+1));
