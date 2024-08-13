@@ -5,6 +5,8 @@
 #include <wx/listctrl.h>
 #include <wx/splitter.h>
 #include <wx/colour.h>
+#include <wx/treectrl.h>
+#include <wx/treebase.h>
 
 #include <tuple>
 #include <fcntl.h>
@@ -46,7 +48,7 @@ private:
 	void StartPacketReader();
 
 	wxListCtrl *pktList;
-	wxListCtrl *detailsList;    
+	wxTreeCtrl *detailsTree;    
 
 	std::vector<net_packet> packets;
     std::mutex packetMutex;

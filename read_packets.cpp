@@ -46,8 +46,39 @@ void PacketReaderWindow::OnMouseDownEvent(wxListEvent& event)
 	if(index < packets.size())
 	{
 		struct net_packet pkt = packets[index];
-		detailsList->DeleteAllItems(); // TODO find a better way
-		detailsList->InsertItem(0, pkt_get_protocol(pkt));
+		detailsTree->DeleteAllItems(); // TODO find a better way
+		
+		switch(pkt.protocol) {
+			case IPPROTO_TCP: {
+				wxTreeItemId root = detailsTree->AddRoot("TCP Header");
+				detailsTree->AppendItem(root, wxString::Format("src port: %u", pkt.transport.tcph.source));
+				detailsTree->AppendItem(root, wxString::Format("dst port: %u", pkt.transport.tcph.dest));
+				detailsTree->AppendItem(root, wxString::Format("seq: %u", ntohl(pkt.transport.tcph.seq)));
+				detailsTree->AppendItem(root, wxString::Format("ack_seq: %u", ntohl(pkt.transport.tcph.ack_seq)));
+				detailsTree->AppendItem(root, wxString::Format("check: %u", ntohs(pkt.transport.tcph.check)));
+
+				wxTreeItemId flags = detailsTree->InsertItem(root, 4, "Flags");
+				detailsTree->AppendItem(flags, wxString::Format("doff: %u", pkt.transport.tcph.doff << 2));
+				detailsTree->AppendItem(flags, wxString::Format("fin: %u", pkt.transport.tcph.fin));
+				detailsTree->AppendItem(flags, wxString::Format("syn: %u", pkt.transport.tcph.syn));
+				detailsTree->AppendItem(flags, wxString::Format("rst: %u", pkt.transport.tcph.rst));
+				detailsTree->AppendItem(flags, wxString::Format("ack: %u", pkt.transport.tcph.ack));
+
+				detailsTree->Expand(root);
+			}
+			break;
+			case IPPROTO_UDP: {
+				wxTreeItemId root = detailsTree->AddRoot("UDP Header");
+				detailsTree->AppendItem(root, wxString::Format("src port: %u", pkt.transport.udph.source));
+				detailsTree->AppendItem(root, wxString::Format("dst port: %u", pkt.transport.udph.dest));
+				detailsTree->AppendItem(root, wxString::Format("len: %u", ntohs(pkt.transport.udph.len)));
+				detailsTree->AppendItem(root, wxString::Format("check: %u", ntohs(pkt.transport.udph.check)));
+
+				detailsTree->Expand(root);
+			}
+			break;
+
+		}		
 	}
 }
 
@@ -79,14 +110,13 @@ void PacketReaderWindow::StartPacketReader()
 
 	Bind(wxEVT_THREAD, [this](wxThreadEvent&) {
 		struct net_packet pkt;	
-	
-		{
+		int itemCount;
+
+		{	
 			std::lock_guard<std::mutex> lock(packetMutex);
 			pkt = packets.back();
+			itemCount = pktList->GetItemCount();
 		}
-
-		wxString buffer_size;
-		buffer_size << packets.size();
 
 		wxString cpuid_str   = pkt_get_cpuid(pkt);
  		wxString skb_len_str = pkt_get_len(pkt);
@@ -96,7 +126,7 @@ void PacketReaderWindow::StartPacketReader()
 		wxString timestamp 	 = pkt_get_time(pkt);
 		auto [src_port, dst_port] = pkt_get_ports(pkt);
 
-		long index = pktList->InsertItem(pktList->GetItemCount(), buffer_size);
+		long index = pktList->InsertItem(itemCount, wxString::Format("%d", itemCount+1));
 		pktList->SetItem(index, 1, cpuid_str);
 		pktList->SetItem(index, 2, src);
 		pktList->SetItem(index, 3, dst);
@@ -140,7 +170,7 @@ PacketReaderWindow::PacketReaderWindow(const wxString& title) : wxFrame(NULL, wx
 	wxPanel *detailsPanel = new wxPanel(splitter, wxID_ANY);	
 
 	// top panel used to show packets
-	pktList = new wxListCtrl(packetsPanel, wxID_ANY, wxDefaultPosition, wxSize(-1,-1), wxLC_REPORT | wxLC_SINGLE_SEL | wxBORDER_SUNKEN);
+	pktList = new wxListCtrl(packetsPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL | wxBORDER_SUNKEN);
 	pktList->InsertColumn(0, "Pkt #", wxLIST_FORMAT_LEFT);
 	pktList->InsertColumn(1, "CPU #", wxLIST_FORMAT_LEFT);	
 	pktList->InsertColumn(2, "Source IP", wxLIST_FORMAT_LEFT, 200);
@@ -156,15 +186,13 @@ PacketReaderWindow::PacketReaderWindow(const wxString& title) : wxFrame(NULL, wx
 	packetsPanel->SetSizer(pktListSizer);
 	
 	// bottom panel, used to show details
-	detailsList = new wxListCtrl(detailsPanel, wxID_ANY, wxDefaultPosition, wxSize(-1,-1), wxLC_REPORT);
-	detailsList->InsertColumn(0, "Packet Information", wxLIST_FORMAT_LEFT, 550);
-	detailsList->InsertItem(0,wxT(""));
+	detailsTree = new wxTreeCtrl(detailsPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTR_DEFAULT_STYLE | wxBORDER_SUNKEN);
 	
 	wxBoxSizer *detailSizer = new wxBoxSizer(wxVERTICAL);
-	detailSizer->Add(detailsList, 1, wxEXPAND | wxALL, 5);
+	detailSizer->Add(detailsTree, 1, wxEXPAND | wxALL, 5);
 	detailsPanel->SetSizer(detailSizer);
 
-	splitter->SplitHorizontally(packetsPanel, detailsPanel, (int)(0.95 * GetSize().GetHeight()));
+	splitter->SplitHorizontally(packetsPanel, detailsPanel, (int)(0.80 * GetSize().GetHeight()));
 
 	contSizer->Add(splitter, 1, wxEXPAND);
 	SetSizerAndFit(contSizer);
