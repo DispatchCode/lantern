@@ -7,7 +7,7 @@ KERNEL_BUILD := /lib/modules/$(shell uname -r)/build
 # User-space application
 USER_APP := read_packets
 USER_APP_SRC := read_packets.cpp
-CFLAGS := `wx-config --cxxflags` `wx-config --libs`
+CFLAGS := -O2 `wx-config --cxxflags` `wx-config --libs`
 
 all: module user_app
 
