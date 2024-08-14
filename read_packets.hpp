@@ -15,6 +15,7 @@
 #include <thread>
 #include <vector>
 #include <mutex>
+
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/tcp.h>    
@@ -46,7 +47,8 @@ public:
 	void OnMouseDownEvent(wxListEvent& event);
 private:
 	void StartPacketReader();
-
+	void ProcessPacket(const struct net_packet&);
+	
 	wxListCtrl *pktList;
 	wxTreeCtrl *detailsTree;    
 
@@ -54,7 +56,7 @@ private:
     std::mutex packetMutex;
     std::thread readerThread;
     bool running;
-    
+
 	// Defined as an event class
     DECLARE_EVENT_TABLE()
 };

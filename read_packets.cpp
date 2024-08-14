@@ -106,14 +106,18 @@ void PacketReaderWindow::StartPacketReader()
 			struct net_packet pkts[50];
 			ssize_t bytes_read = read(fd, pkts, sizeof(struct net_packet) * 50);
 			if(bytes_read > 0) {
-				std::lock_guard<std::mutex> lock(packetMutex);
 				int num_packets = bytes_read / sizeof(struct net_packet);
 				
-				for(int i=0; i < num_packets; i++) {
-					packets.emplace_back(pkts[i]);
-					wxThreadEvent event(wxEVT_THREAD, wxID_ANY);
-					wxQueueEvent(this, event.Clone());
+				{
+					std::lock_guard<std::mutex> lock(packetMutex);
+				
+					for(int i=0; i < num_packets; i++) {
+						std::thread([this, pkt = pkts[i]]() {
+							ProcessPacket(pkt);
+						}).detach();
+					}
 				}
+
 			}
 		}
 		close(fd);
@@ -125,6 +129,8 @@ void PacketReaderWindow::StartPacketReader()
 
 		{	
 			std::lock_guard<std::mutex> lock(packetMutex);
+			if(packets.empty()) return;
+			
 			pkt = packets.back();
 			itemCount = pktList->GetItemCount();
 		}
@@ -149,6 +155,17 @@ void PacketReaderWindow::StartPacketReader()
 		pktList->SetItemBackgroundColour(index, color_by_protocol(pkt.protocol));
 	});
 } 
+
+void PacketReaderWindow::ProcessPacket(const net_packet& pkt)
+{
+	{
+		std::lock_guard<std::mutex> lock(packetMutex);
+		packets.emplace_back(pkt);
+	}
+
+	wxThreadEvent event(wxEVT_THREAD, wxID_ANY);
+	wxQueueEvent(this, event.Clone());
+}
 
 
 PacketReaderWindow::PacketReaderWindow(const wxString& title) : wxFrame(NULL, wxID_ANY, title)
