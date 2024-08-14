@@ -93,6 +93,7 @@ static ssize_t device_read(struct file *file, char __user *user_buffer, size_t l
 
 	packet_size = sizeof(struct net_packet);
 	size_to_copy = min(packet_index * packet_size, (int)len);
+
 	if (likely(copy_to_user(user_buffer, buffer, size_to_copy))) {
 		mutex_unlock(&buffer_mutex);
 		return -EFAULT;
@@ -242,7 +243,7 @@ static int __init packet_sniffer_init(void) {
 	}
 
 	pr_info("packet_sniffer: Module loaded\n");
-	pr_info("Allocated buffer of net_packet of size: %lu bytes", sizeof(buffer));
+	pr_info("Size of the allocated net_packet buffer: %lu bytes, size of net_packet: %lu bytes", sizeof(buffer), sizeof(struct net_packet));
 
 	return 0;
 
