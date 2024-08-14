@@ -103,13 +103,17 @@ void PacketReaderWindow::StartPacketReader()
 		while(running)
 		{
 			// TODO read multiple packets, dispatch to many threads (?)
-			struct net_packet pkt;
-			ssize_t bytes_read = read(fd, &pkt, sizeof(struct net_packet));
+			struct net_packet pkts[50];
+			ssize_t bytes_read = read(fd, pkts, sizeof(struct net_packet) * 50);
 			if(bytes_read > 0) {
 				std::lock_guard<std::mutex> lock(packetMutex);
-				packets.emplace_back(pkt);
-				wxThreadEvent event(wxEVT_THREAD, wxID_ANY);
-				wxQueueEvent(this, event.Clone());
+				int num_packets = bytes_read / sizeof(struct net_packet);
+				
+				for(int i=0; i < num_packets; i++) {
+					packets.emplace_back(pkts[i]);
+					wxThreadEvent event(wxEVT_THREAD, wxID_ANY);
+					wxQueueEvent(this, event.Clone());
+				}
 			}
 		}
 		close(fd);
