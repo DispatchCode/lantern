@@ -2,7 +2,9 @@
 #include <linux/kernel.h>
 #include <linux/netfilter.h>
 #include <linux/netfilter_ipv4.h>
+#include <linux/netfilter_ipv6.h>
 #include <linux/ip.h>
+#include <linux/ipv6.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
 #include <linux/cdev.h>
@@ -28,6 +30,7 @@ static wait_queue_head_t wait_queue;
 
 // netfilter hook operations
 static struct nf_hook_ops nf_ops;
+static struct nf_hook_ops nf_ops_ipv6;
 
 // packet filled in by the kernel
 static struct net_packet buffer[BUFFER_SIZE];
@@ -131,22 +134,31 @@ static struct net_packet fill_transport_info(struct sk_buff *skb, struct net_pac
 	return *pkt;
 }
 
-// TODO add support for IPv6
 // collect IP & generic informations
 static struct net_packet fill_packet_info(struct sk_buff *skb) {
 	struct net_packet pkt;
 	struct iphdr *ip_header;
+	struct ipv6hdr *ipv6_header;
 	struct timespec64 ts;
 
-	ip_header = ip_hdr(skb);
 	ts = ktime_to_timespec64(skb->tstamp);
 
 	pkt.skb_len = skb->len;
-	pkt.protocol = ip_header->protocol;
 	pkt.timestamp_sec = ts.tv_sec;
 	pkt.timestamp_nsec = ts.tv_nsec;
 
-	memcpy(&pkt.network.ipv4h, ip_header, sizeof(struct iphdr));	
+	if(skb->protocol == htons(ETH_P_IP)) {
+		ip_header = ip_hdr(skb);
+		pkt.protocol = ip_header->protocol;
+		memcpy(&pkt.network.ipv4h, ip_header, sizeof(struct iphdr));	
+	} 
+	else {
+		ipv6_header = ipv6_hdr(skb);
+		pkt.protocol = ipv6_header->nexthdr;
+		memcpy(&pkt.network.ipv6h, ipv6_header, sizeof(struct ipv6hdr));
+		
+		pr_info("IPv6, nexthdr: %u", pkt.protocol);
+	}
 
 	fill_transport_info(skb, &pkt);
 
@@ -166,7 +178,7 @@ static unsigned int capture(void *priv, struct sk_buff *skb, const struct nf_hoo
 	struct net_packet pkt;
 	unsigned long flags;
 
-	if (skb->protocol != htons(ETH_P_IP)) {
+	if (skb->protocol != htons(ETH_P_IP) && skb->protocol != htons(ETH_P_IPV6)) {
 		return NF_ACCEPT;
 	}
 
@@ -196,14 +208,28 @@ static int __init packet_sniffer_init(void) {
 
 	init_waitqueue_head(&wait_queue);
 
+	// IPv4 Netfilter Hook
 	nf_ops.hook = capture;
 	nf_ops.hooknum = NF_INET_PRE_ROUTING;
 	nf_ops.pf = PF_INET;
 	nf_ops.priority = NF_IP_PRI_FIRST;
 
+	// IPv6 Netfilter Hook
+	nf_ops_ipv6.hook = capture;
+	nf_ops_ipv6.hooknum = NF_INET_PRE_ROUTING;
+	nf_ops_ipv6.pf = PF_INET6;
+	nf_ops_ipv6.priority = NF_IP6_PRI_FIRST;
+
 	ret = nf_register_net_hook(&init_net, &nf_ops);
 	if (ret) {
 		pr_err("packet_sniffer: Netfilter registration failed\n");
+		return ret;
+	}
+
+	ret = nf_register_net_hook(&init_net, &nf_ops_ipv6);
+	if (ret) {
+		pr_err("packet_sniffer: Netfilter registration failed\n");
+		nf_unregister_net_hook(&init_net, &nf_ops);
 		return ret;
 	}
 
@@ -255,6 +281,7 @@ err_unregister_chrdev_region:
 	unregister_chrdev_region(dev_num, 1);
 err_nf_unregister_net_hook:
 	nf_unregister_net_hook(&init_net, &nf_ops);
+	nf_unregister_net_hook(&init_net, &nf_ops_ipv6);
 
 	return ret;
 }
@@ -266,7 +293,7 @@ static void __exit packet_sniffer_exit(void) {
 	cdev_del(&char_dev);
 	unregister_chrdev_region(dev_num, 1);
 	nf_unregister_net_hook(&init_net, &nf_ops);
-
+	nf_unregister_net_hook(&init_net, &nf_ops_ipv6);
 	pr_info("packet_sniffer: Module unloaded\n");
 }
 
