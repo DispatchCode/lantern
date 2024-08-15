@@ -39,7 +39,7 @@ class PacketReaderWindow : public wxFrame
 {
 public:
 	PacketReaderWindow(const wxString& title);
-	//~PacketReaderWindow();
+	~PacketReaderWindow();
 
 	void OnQuit(wxCommandEvent& event);
 	void OnAbout(wxCommandEvent& event);
@@ -47,7 +47,6 @@ public:
 	void OnMouseDownEvent(wxListEvent& event);
 private:
 	void StartPacketReader();
-	void ProcessPacket(const struct net_packet&);
 	
 	wxListCtrl *pktList;
 	wxTreeCtrl *detailsTree;    

@@ -102,7 +102,6 @@ void PacketReaderWindow::StartPacketReader()
 		
 		while(running)
 		{
-			// TODO read multiple packets, dispatch to many threads (?)
 			struct net_packet pkts[50];
 			ssize_t bytes_read = read(fd, pkts, sizeof(struct net_packet) * 50);
 			if(bytes_read > 0) {
@@ -113,11 +112,14 @@ void PacketReaderWindow::StartPacketReader()
 				
 					for(int i=0; i < num_packets; i++) {
 						std::thread([this, pkt = pkts[i]]() {
-							ProcessPacket(pkt);
+							std::lock_guard<std::mutex> lock(packetMutex);
+							packets.emplace_back(pkt);
 						}).detach();
 					}
-				}
 
+					wxThreadEvent event(wxEVT_THREAD, wxID_ANY);
+					wxQueueEvent(this, event.Clone());
+				}
 			}
 		}
 		close(fd);
@@ -156,17 +158,12 @@ void PacketReaderWindow::StartPacketReader()
 	});
 } 
 
-void PacketReaderWindow::ProcessPacket(const net_packet& pkt)
-{
-	{
-		std::lock_guard<std::mutex> lock(packetMutex);
-		packets.emplace_back(pkt);
+PacketReaderWindow::~PacketReaderWindow() {
+	running = false;
+	if (readerThread.joinable()) {
+		readerThread.join();
 	}
-
-	wxThreadEvent event(wxEVT_THREAD, wxID_ANY);
-	wxQueueEvent(this, event.Clone());
 }
-
 
 PacketReaderWindow::PacketReaderWindow(const wxString& title) : wxFrame(NULL, wxID_ANY, title)
 {
