@@ -42,10 +42,15 @@ void PacketReaderWindow::OnQuit(wxCommandEvent& event)
 
 void PacketReaderWindow::OnMouseDownEvent(wxListEvent& event)
 {
+	struct net_packet pkt;
 	int index = event.GetItem();
 	if(index < packets.size())
 	{
-		struct net_packet pkt = packets[index];
+		{
+			std::unique_lock<std::mutex> lock(packetMutex);
+			pkt = packets[index];
+		}
+
 		detailsTree->DeleteAllItems(); // TODO find a better way
 		
 		switch(pkt.protocol) {
@@ -65,8 +70,8 @@ void PacketReaderWindow::OnMouseDownEvent(wxListEvent& event)
 				detailsTree->AppendItem(flags, wxString::Format("ack: %u", pkt.transport.tcph.ack));
 
 				detailsTree->Expand(root);
+				break;
 			}
-			break;
 			case IPPROTO_UDP: {
 				wxTreeItemId root = detailsTree->AddRoot("UDP Header");
 				detailsTree->AppendItem(root, wxString::Format("src port: %u", pkt.transport.udph.source));
@@ -75,16 +80,15 @@ void PacketReaderWindow::OnMouseDownEvent(wxListEvent& event)
 				detailsTree->AppendItem(root, wxString::Format("check: %u", ntohs(pkt.transport.udph.check)));
 
 				detailsTree->Expand(root);
-			break;
+				break;
 			}
 			case IPPROTO_IGMP:{
 				wxTreeItemId root = detailsTree->AddRoot("IGMP Header");
 				detailsTree->AppendItem(root, wxString::Format("type: %s", pkt_igmp_get_type(pkt)));
 
 				detailsTree->Expand(root);
+				break;
 			}
-			break;
-
 		}		
 	}
 }
@@ -102,24 +106,26 @@ void PacketReaderWindow::StartPacketReader()
 		
 		while(running)
 		{
-			struct net_packet pkts[50];
+			struct net_packet pkts[50] = {0};
 			ssize_t bytes_read = read(fd, pkts, sizeof(struct net_packet) * 50);
 			if(bytes_read > 0) {
 				int num_packets = bytes_read / sizeof(struct net_packet);
 				
 				{
-					std::lock_guard<std::mutex> lock(packetMutex);
-				
+					std::scoped_lock lock(packetMutex);
+
 					for(int i=0; i < num_packets; i++) {
 						std::thread([this, pkt = pkts[i]]() {
-							std::lock_guard<std::mutex> lock(packetMutex);
+							std::scoped_lock lock(packetMutex, queueMutex);
 							packets.emplace_back(pkt);
+							incomingPackets.emplace(pkt);
 						}).detach();
 					}
-
-					wxThreadEvent event(wxEVT_THREAD, wxID_ANY);
-					wxQueueEvent(this, event.Clone());
 				}
+		
+				wxThreadEvent event(wxEVT_THREAD, wxID_ANY);
+				wxQueueEvent(this, event.Clone());
+			
 			}
 		}
 		close(fd);
@@ -130,10 +136,11 @@ void PacketReaderWindow::StartPacketReader()
 		int itemCount;
 
 		{	
-			std::lock_guard<std::mutex> lock(packetMutex);
-			if(packets.empty()) return;
+			std::scoped_lock lock(queueMutex);
+			if(incomingPackets.empty()) return;
 			
-			pkt = packets.back();
+			pkt = incomingPackets.front();
+			incomingPackets.pop();
 			itemCount = pktList->GetItemCount();
 		}
 
@@ -147,8 +154,8 @@ void PacketReaderWindow::StartPacketReader()
 		long index = pktList->InsertItem(itemCount, wxString::Format("%d", itemCount+1));
 		pktList->SetItem(index, 1, cpuid_str);
 		pktList->SetItem(index, 2, src);
-		pktList->SetItem(index, 3, dst);
-		pktList->SetItem(index, 4, src_port);
+		pktList->SetItem(index, 3, src_port);
+		pktList->SetItem(index, 4, dst);
 		pktList->SetItem(index, 5, dst_port);
 		pktList->SetItem(index, 6, timestamp);
 		pktList->SetItem(index, 7, protocol);
@@ -198,9 +205,9 @@ PacketReaderWindow::PacketReaderWindow(const wxString& title) : wxFrame(NULL, wx
 	pktList->InsertColumn(0, "Pkt #", wxLIST_FORMAT_LEFT);
 	pktList->InsertColumn(1, "CPU #", wxLIST_FORMAT_LEFT);	
 	pktList->InsertColumn(2, "Source IP", wxLIST_FORMAT_LEFT, 200);
-	pktList->InsertColumn(3, "Destination IP", wxLIST_FORMAT_LEFT, 200);
-	pktList->InsertColumn(4, "Src Port", wxLIST_FORMAT_LEFT);
-	pktList->InsertColumn(5, "Dst Port", wxLIST_FORMAT_LEFT);
+	pktList->InsertColumn(3, "Port", wxLIST_FORMAT_LEFT);
+	pktList->InsertColumn(4, "Destination IP", wxLIST_FORMAT_LEFT, 200);
+	pktList->InsertColumn(5, "Port", wxLIST_FORMAT_LEFT);
 	pktList->InsertColumn(6, "Timestamp", wxLIST_FORMAT_LEFT, 200);
 	pktList->InsertColumn(7, "Protocol", wxLIST_FORMAT_LEFT);
 	pktList->InsertColumn(8, "Length", wxLIST_FORMAT_LEFT);

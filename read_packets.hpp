@@ -15,6 +15,7 @@
 #include <thread>
 #include <vector>
 #include <mutex>
+#include <queue>
 
 #include <linux/ip.h>
 #include <linux/ipv6.h>
@@ -52,6 +53,9 @@ private:
 	wxTreeCtrl *detailsTree;    
 
 	std::vector<net_packet> packets;
+	std::queue<net_packet> incomingPackets;
+
+	std::mutex queueMutex;
     std::mutex packetMutex;
     std::thread readerThread;
     bool running;
