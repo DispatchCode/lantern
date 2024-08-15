@@ -156,8 +156,6 @@ static struct net_packet fill_packet_info(struct sk_buff *skb) {
 		ipv6_header = ipv6_hdr(skb);
 		pkt.protocol = ipv6_header->nexthdr;
 		memcpy(&pkt.network.ipv6h, ipv6_header, sizeof(struct ipv6hdr));
-		
-		pr_info("IPv6, nexthdr: %u", pkt.protocol);
 	}
 
 	fill_transport_info(skb, &pkt);
@@ -179,6 +177,7 @@ static unsigned int capture(void *priv, struct sk_buff *skb, const struct nf_hoo
 	unsigned long flags;
 
 	if (skb->protocol != htons(ETH_P_IP) && skb->protocol != htons(ETH_P_IPV6)) {
+		pr_info("Accepted unsupported protocol: %d", skb->protocol);
 		return NF_ACCEPT;
 	}
 
