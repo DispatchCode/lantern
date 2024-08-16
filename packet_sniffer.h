@@ -4,6 +4,8 @@
 #include <linux/if_ether.h>
 #include <linux/ip.h>
 #include <linux/ipv6.h>
+#include <linux/icmpv6.h>
+#include <linux/icmp.h>
 #include <linux/igmp.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
@@ -28,6 +30,11 @@ struct net_packet {
 		struct tcphdr tcph;
 		struct udphdr udph;
 		struct igmphdr igmph;
+		
+		union {
+			struct icmphdr icmpv4h;
+			struct icmp6hdr icmpv6h;
+		} icmph;
 	} transport;
 
 	union {

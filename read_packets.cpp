@@ -60,7 +60,7 @@ void PacketReaderWindow::OnMouseDownEvent(wxListEvent& event)
 		wxTreeItemId eth_root = detailsTree->AddRoot("Ethernet Frame");
 		detailsTree->AppendItem(eth_root, wxString::Format("Source: %s",  eth_src));
 		detailsTree->AppendItem(eth_root, wxString::Format("Destination: %s", eth_dst));
-		detailsTree->AppendItem(eth_root, wxString::Format("Protocol: %s", pkt_get_protocol(pkt)));
+		detailsTree->AppendItem(eth_root, wxString::Format("Transport Protocol: %s", pkt_get_protocol(pkt)));
 
 		detailsTree->Expand(eth_root);
 	
@@ -91,6 +91,14 @@ void PacketReaderWindow::OnMouseDownEvent(wxListEvent& event)
 		}
 
 		switch(pkt.protocol) {
+			case NEXTHDR_ICMP: {
+				wxTreeItemId icmp = detailsTree->InsertItem(ip, 4, "ICMPv6 Header");
+				detailsTree->AppendItem(icmp, wxString::Format("Type: %s", pkt_icmpv6_get_type(pkt)));
+				detailsTree->AppendItem(icmp, wxString::Format("Sequence: %u", pkt.transport.icmph.icmpv6h.icmp6_dataun.u_echo.sequence));
+
+				detailsTree->Expand(icmp);
+			break;
+			}
 			case IPPROTO_TCP: {
 				wxTreeItemId root = detailsTree->InsertItem(ip, 4, "TCP Header");
 				detailsTree->AppendItem(root, wxString::Format("src port: %u", pkt.transport.tcph.source));

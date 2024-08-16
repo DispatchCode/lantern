@@ -65,6 +65,7 @@ inline std::tuple<wxString, wxString> pkt_get_ips(struct net_packet& pkt) {
 	return {wxString::FromAscii(src), wxString::FromAscii(dst)};
 }
 
+// TODO refactoring of PROTO_STR, use directly the protocol valu (?)
 inline wxString pkt_get_protocol(struct net_packet& pkt) {
 	switch(pkt.protocol) {
 		case IPPROTO_IP  : return PROTO_STR("IPv4", pkt);
@@ -74,6 +75,20 @@ inline wxString pkt_get_protocol(struct net_packet& pkt) {
 		case IPPROTO_IPV6: return PROTO_STR("IPv6", pkt);
 		case NEXTHDR_ICMP: return PROTO_STR("ICMPv6", pkt);
 		default: 		   return PROTO_STR("OTHER", pkt);
+	}
+}
+
+inline wxString pkt_icmpv6_get_type(struct net_packet& pkt) {
+	uint8_t type = pkt.transport.icmph.icmpv6h.icmp6_type;
+
+	switch(type) {
+		case 1: return wxString::Format("Destination unreachable");
+		case 2: return wxString::Format("Packet too big");
+		case 128: return wxString::Format("Echo Request");
+		case 129: return wxString::Format("Echo Reply");
+		case 135: return wxString::Format("Neighbor Solicitation");
+		case 136: return wxString::Format("Neighbor Advertisement");
+		default: return wxString::Format("[still unsupported, %u]", type);
 	}
 }
 

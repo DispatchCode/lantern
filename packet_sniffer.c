@@ -7,6 +7,7 @@
 #include <linux/if_ether.h>
 #include <linux/ip.h>
 #include <linux/ipv6.h>
+#include <linux/icmpv6.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
 
@@ -117,7 +118,8 @@ static struct net_packet fill_transport_info(struct sk_buff *skb, struct net_pac
 	struct tcphdr *tcp_header;
 	struct udphdr *udp_header;
 	struct igmphdr *igmp_header;
-    
+	struct icmp6hdr *icmpv6_header;    
+
 	switch(pkt->protocol) {
 		case IPPROTO_IGMP:
 			igmp_header = igmp_hdr(skb);
@@ -131,7 +133,11 @@ static struct net_packet fill_transport_info(struct sk_buff *skb, struct net_pac
 		case IPPROTO_UDP:
 			udp_header = udp_hdr(skb);
 			memcpy(&pkt->transport.udph, udp_header, sizeof(struct udphdr));
-			break;
+		break;
+		case NEXTHDR_ICMP: // ICMPv6
+			icmpv6_header = icmp6_hdr(skb);
+			memcpy(&pkt->transport.icmph.icmpv6h, icmpv6_header, sizeof(struct icmp6hdr));
+		break;
 	}
 
 	return *pkt;
