@@ -1,6 +1,7 @@
 #ifndef PACKET_SNIFFER_H
 #define PACKET_SNIFFER_H
 
+#include <linux/if_ether.h>
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/igmp.h>
@@ -21,6 +22,8 @@ struct net_packet {
 	unsigned long timestamp_sec;
 	unsigned long timestamp_nsec;
 
+	struct ethhdr ethh;
+
 	union {
 		struct tcphdr tcph;
 		struct udphdr udph;
@@ -40,7 +43,7 @@ struct net_packet {
 	int length;
 	int skb_len;
 	int cpu_id;
-}  __attribute__ ((aligned));
+}  __attribute__ ((packed));
 
 #endif
 

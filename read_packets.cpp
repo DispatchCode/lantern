@@ -5,6 +5,8 @@
 #include <iostream>
 
 #define DEVICE_FILE "/dev/packet_sniffer"
+#define PKTS_BATCH  25
+
 
 inline wxColour color_by_protocol(int protocol) {
 	switch(protocol) {
@@ -21,7 +23,8 @@ inline wxColour color_by_protocol(int protocol) {
 bool PacketReader::OnInit()
 {
 	PacketReaderWindow *window = new PacketReaderWindow(wxT("Packet sniffer"));
-	window->SetInitialSize();
+	window->SetSize(wxSize(1920, 1080));
+	window->SetAutoLayout(true);
 	window->Show(true);
 	return true;
 }
@@ -51,11 +54,19 @@ void PacketReaderWindow::OnMouseDownEvent(wxListEvent& event)
 			pkt = packets[index];
 		}
 
-		detailsTree->DeleteAllItems(); // TODO find a better way
+		detailsTree->DeleteAllItems();
 		
+		auto [eth_src, eth_dst] = pkt_get_eth_addr(pkt);
+		wxTreeItemId eth_root = detailsTree->AddRoot("Ethernet Frame");
+		detailsTree->AppendItem(eth_root, wxString::Format("Source: %s",  eth_src));
+		detailsTree->AppendItem(eth_root, wxString::Format("Destination: %s", eth_dst));
+		detailsTree->AppendItem(eth_root, wxString::Format("Protocol: %s", pkt_get_protocol(pkt)));
+
+		detailsTree->Expand(eth_root);
+
 		switch(pkt.protocol) {
 			case IPPROTO_TCP: {
-				wxTreeItemId root = detailsTree->AddRoot("TCP Header");
+				wxTreeItemId root = detailsTree->InsertItem(eth_root, 3, "TCP Header");
 				detailsTree->AppendItem(root, wxString::Format("src port: %u", pkt.transport.tcph.source));
 				detailsTree->AppendItem(root, wxString::Format("dst port: %u", pkt.transport.tcph.dest));
 				detailsTree->AppendItem(root, wxString::Format("seq: %u", ntohl(pkt.transport.tcph.seq)));
@@ -73,7 +84,7 @@ void PacketReaderWindow::OnMouseDownEvent(wxListEvent& event)
 				break;
 			}
 			case IPPROTO_UDP: {
-				wxTreeItemId root = detailsTree->AddRoot("UDP Header");
+				wxTreeItemId root = detailsTree->InsertItem(eth_root, 3, "UDP Header");
 				detailsTree->AppendItem(root, wxString::Format("src port: %u", pkt.transport.udph.source));
 				detailsTree->AppendItem(root, wxString::Format("dst port: %u", pkt.transport.udph.dest));
 				detailsTree->AppendItem(root, wxString::Format("len: %u", ntohs(pkt.transport.udph.len)));
@@ -83,7 +94,7 @@ void PacketReaderWindow::OnMouseDownEvent(wxListEvent& event)
 				break;
 			}
 			case IPPROTO_IGMP:{
-				wxTreeItemId root = detailsTree->AddRoot("IGMP Header");
+				wxTreeItemId root = detailsTree->InsertItem(eth_root, 3, "IGMP Header");
 				detailsTree->AppendItem(root, wxString::Format("type: %s", pkt_igmp_get_type(pkt)));
 
 				detailsTree->Expand(root);
@@ -106,8 +117,8 @@ void PacketReaderWindow::StartPacketReader()
 		
 		while(running)
 		{
-			struct net_packet pkts[50] = {0};
-			ssize_t bytes_read = read(fd, pkts, sizeof(struct net_packet) * 50);
+			struct net_packet pkts[PKTS_BATCH] = {0};
+			ssize_t bytes_read = read(fd, pkts, sizeof(struct net_packet) * PKTS_BATCH);
 			if(bytes_read > 0) {
 				int num_packets = bytes_read / sizeof(struct net_packet);
 				
@@ -197,19 +208,19 @@ PacketReaderWindow::PacketReaderWindow(const wxString& title) : wxFrame(NULL, wx
 	wxSplitterWindow *splitter = new wxSplitterWindow(this, wxID_ANY);
 	
 	// packet and detail panels
-	wxPanel *packetsPanel = new wxPanel(splitter, wxID_ANY);
+	wxPanel *packetsPanel = new wxPanel(splitter, wxID_ANY, wxDefaultPosition, GetSize());
 	wxPanel *detailsPanel = new wxPanel(splitter, wxID_ANY);	
 
 	// top panel used to show packets
-	pktList = new wxListCtrl(packetsPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL | wxBORDER_SUNKEN);
+	pktList = new wxListCtrl(packetsPanel, wxID_ANY, wxDefaultPosition, wxSize(GetSize().GetWidth(), -1), wxLC_REPORT | wxLC_SINGLE_SEL | wxBORDER_SUNKEN);
 	pktList->InsertColumn(0, "Pkt #", wxLIST_FORMAT_LEFT);
 	pktList->InsertColumn(1, "CPU #", wxLIST_FORMAT_LEFT);	
-	pktList->InsertColumn(2, "Source IP", wxLIST_FORMAT_LEFT, 200);
+	pktList->InsertColumn(2, "Source IP", wxLIST_FORMAT_LEFT, 300);
 	pktList->InsertColumn(3, "Port", wxLIST_FORMAT_LEFT);
-	pktList->InsertColumn(4, "Destination IP", wxLIST_FORMAT_LEFT, 200);
+	pktList->InsertColumn(4, "Destination IP", wxLIST_FORMAT_LEFT, 300);
 	pktList->InsertColumn(5, "Port", wxLIST_FORMAT_LEFT);
-	pktList->InsertColumn(6, "Timestamp", wxLIST_FORMAT_LEFT, 200);
-	pktList->InsertColumn(7, "Protocol", wxLIST_FORMAT_LEFT);
+	pktList->InsertColumn(6, "Timestamp", wxLIST_FORMAT_LEFT, 250);
+	pktList->InsertColumn(7, "Protocol", wxLIST_FORMAT_LEFT, 150);
 	pktList->InsertColumn(8, "Length", wxLIST_FORMAT_LEFT);
 	
 	wxBoxSizer *pktListSizer = new wxBoxSizer(wxVERTICAL);

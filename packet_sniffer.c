@@ -1,12 +1,15 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
+
 #include <linux/netfilter.h>
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter_ipv6.h>
+#include <linux/if_ether.h>
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
+
 #include <linux/cdev.h>
 #include <linux/fs.h>
 #include <linux/wait.h>
@@ -137,6 +140,7 @@ static struct net_packet fill_transport_info(struct sk_buff *skb, struct net_pac
 // collect IP & generic informations
 static struct net_packet fill_packet_info(struct sk_buff *skb) {
 	struct net_packet pkt;
+	struct ethhdr *eth_header;
 	struct iphdr *ip_header;
 	struct ipv6hdr *ipv6_header;
 	struct timespec64 ts;
@@ -147,6 +151,9 @@ static struct net_packet fill_packet_info(struct sk_buff *skb) {
 	pkt.timestamp_sec = ts.tv_sec;
 	pkt.timestamp_nsec = ts.tv_nsec;
 
+	eth_header = eth_hdr(skb);
+	memcpy(&pkt.ethh, eth_header, sizeof(struct ethhdr));
+
 	if(skb->protocol == htons(ETH_P_IP)) {
 		ip_header = ip_hdr(skb);
 		pkt.protocol = ip_header->protocol;
@@ -156,6 +163,7 @@ static struct net_packet fill_packet_info(struct sk_buff *skb) {
 		ipv6_header = ipv6_hdr(skb);
 		pkt.protocol = ipv6_header->nexthdr;
 		memcpy(&pkt.network.ipv6h, ipv6_header, sizeof(struct ipv6hdr));
+		pr_info("nexthdr: %d", pkt.protocol);
 	}
 
 	fill_transport_info(skb, &pkt);

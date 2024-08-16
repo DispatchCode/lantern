@@ -4,14 +4,23 @@
 #include <wx/wx.h>
 #include <wx/string.h>
 #include <tuple>
+
 #include <arpa/inet.h>
 #include <netdb.h>
+
 #include <string>
 
 #include <iostream>
 
+
+#define NEXTHDR_ICMP  58 /* ICMP for IPv6 */
+
+
 #define PROTO_STR(p, pkt) \
 	wxString::Format(p" (%d)", pkt.protocol);
+
+#define WXTREE_APPEND(tree_id, root, str, val) \
+	tree_id->AppendItem(root, str, val);
 
 
 inline wxString pkt_get_cpuid(struct net_packet& pkt) {
@@ -24,6 +33,20 @@ inline wxString pkt_get_len(struct net_packet& pkt) {
 	wxString skb_len_str;
 	skb_len_str << pkt.skb_len;
 	return skb_len_str;
+}
+
+inline std::tuple<wxString, wxString> pkt_get_eth_addr(struct net_packet& pkt) {
+	wxString wxSrc, wxDst;
+
+	wxSrc = wxString::Format("%02X:%02X:%02X:%02X:%02X:%02X",
+						pkt.ethh.h_source[0], pkt.ethh.h_source[1], pkt.ethh.h_source[2],
+						pkt.ethh.h_source[3], pkt.ethh.h_source[4], pkt.ethh.h_source[5]);
+
+	wxDst = wxString::Format("%02X:%02X:%02X:%02X:%02X:%02X",
+						pkt.ethh.h_dest[0], pkt.ethh.h_dest[1], pkt.ethh.h_dest[2],
+						pkt.ethh.h_dest[3], pkt.ethh.h_dest[4], pkt.ethh.h_dest[5]);
+
+	return {wxSrc, wxDst};
 }
 
 inline std::tuple<wxString, wxString> pkt_get_ips(struct net_packet& pkt) {
@@ -44,9 +67,12 @@ inline std::tuple<wxString, wxString> pkt_get_ips(struct net_packet& pkt) {
 
 inline wxString pkt_get_protocol(struct net_packet& pkt) {
 	switch(pkt.protocol) {
+		case IPPROTO_IP  : return PROTO_STR("IPv4", pkt);
 		case IPPROTO_IGMP: return PROTO_STR("IGMP", pkt);
  		case IPPROTO_TCP : return PROTO_STR("TCP", pkt);
-		case IPPROTO_UDP : return PROTO_STR("UDP", pkt)
+		case IPPROTO_UDP : return PROTO_STR("UDP", pkt);
+		case IPPROTO_IPV6: return PROTO_STR("IPv6", pkt);
+		case NEXTHDR_ICMP: return PROTO_STR("ICMPv6", pkt);
 		default: 		   return PROTO_STR("OTHER", pkt);
 	}
 }
