@@ -63,10 +63,36 @@ void PacketReaderWindow::OnMouseDownEvent(wxListEvent& event)
 		detailsTree->AppendItem(eth_root, wxString::Format("Protocol: %s", pkt_get_protocol(pkt)));
 
 		detailsTree->Expand(eth_root);
+	
+		wxTreeItemId ip;
+		auto [src, dst] = pkt_get_ips(pkt);
+
+		switch(htons(pkt.eth_protocol)) {
+			case ETH_P_IP: {
+				ip = detailsTree->InsertItem(eth_root, 3, "IPv4 Header");
+				detailsTree->AppendItem(ip, wxString::Format("src: %s", src));
+				detailsTree->AppendItem(ip, wxString::Format("dest: %s", dst));
+				detailsTree->AppendItem(ip, wxString::Format("TOS: %u", pkt.network.ipv4h.tos));
+				detailsTree->AppendItem(ip, wxString::Format("TTL: %u", pkt.network.ipv4h.ttl));				
+
+				detailsTree->Expand(ip);
+				break;
+			}
+			case ETH_P_IPV6: {
+				ip = detailsTree->InsertItem(eth_root, 3, "IPv6 Header");
+				detailsTree->AppendItem(ip, wxString::Format("src: %s", src));
+				detailsTree->AppendItem(ip, wxString::Format("dest: %s", dst));
+				detailsTree->AppendItem(ip, wxString::Format("payload len: %u", pkt.network.ipv6h.payload_len));
+				detailsTree->AppendItem(ip, wxString::Format("hop limit: %u", pkt.network.ipv6h.hop_limit));
+
+				detailsTree->Expand(ip);
+				break;			
+			}
+		}
 
 		switch(pkt.protocol) {
 			case IPPROTO_TCP: {
-				wxTreeItemId root = detailsTree->InsertItem(eth_root, 3, "TCP Header");
+				wxTreeItemId root = detailsTree->InsertItem(ip, 4, "TCP Header");
 				detailsTree->AppendItem(root, wxString::Format("src port: %u", pkt.transport.tcph.source));
 				detailsTree->AppendItem(root, wxString::Format("dst port: %u", pkt.transport.tcph.dest));
 				detailsTree->AppendItem(root, wxString::Format("seq: %u", ntohl(pkt.transport.tcph.seq)));
@@ -84,7 +110,7 @@ void PacketReaderWindow::OnMouseDownEvent(wxListEvent& event)
 				break;
 			}
 			case IPPROTO_UDP: {
-				wxTreeItemId root = detailsTree->InsertItem(eth_root, 3, "UDP Header");
+				wxTreeItemId root = detailsTree->InsertItem(eth_root, 4, "UDP Header");
 				detailsTree->AppendItem(root, wxString::Format("src port: %u", pkt.transport.udph.source));
 				detailsTree->AppendItem(root, wxString::Format("dst port: %u", pkt.transport.udph.dest));
 				detailsTree->AppendItem(root, wxString::Format("len: %u", ntohs(pkt.transport.udph.len)));
@@ -94,7 +120,7 @@ void PacketReaderWindow::OnMouseDownEvent(wxListEvent& event)
 				break;
 			}
 			case IPPROTO_IGMP:{
-				wxTreeItemId root = detailsTree->InsertItem(eth_root, 3, "IGMP Header");
+				wxTreeItemId root = detailsTree->InsertItem(eth_root, 4, "IGMP Header");
 				detailsTree->AppendItem(root, wxString::Format("type: %s", pkt_igmp_get_type(pkt)));
 
 				detailsTree->Expand(root);

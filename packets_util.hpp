@@ -50,14 +50,14 @@ inline std::tuple<wxString, wxString> pkt_get_eth_addr(struct net_packet& pkt) {
 }
 
 inline std::tuple<wxString, wxString> pkt_get_ips(struct net_packet& pkt) {
-	char src[INET6_ADDRSTRLEN];
-	char dst[INET6_ADDRSTRLEN];
+	char src[INET6_ADDRSTRLEN] = {0};
+	char dst[INET6_ADDRSTRLEN] = {0};
 
-	if(pkt.network.ipv4h.version == 4) {
+	if(htons(pkt.eth_protocol) == ETH_P_IP) {
 		inet_ntop(AF_INET, &pkt.network.ipv4h.saddr, src, INET_ADDRSTRLEN);
 		inet_ntop(AF_INET, &pkt.network.ipv4h.daddr, dst, INET_ADDRSTRLEN);
 	}
-	else {
+	else { // TODO if other protocols are supported, change with a switch
 		inet_ntop(AF_INET6, &pkt.network.ipv6h.saddr, src, INET6_ADDRSTRLEN);
 		inet_ntop(AF_INET6, &pkt.network.ipv6h.daddr, dst, INET6_ADDRSTRLEN);
 	}

@@ -150,6 +150,7 @@ static struct net_packet fill_packet_info(struct sk_buff *skb) {
 	pkt.skb_len = skb->len;
 	pkt.timestamp_sec = ts.tv_sec;
 	pkt.timestamp_nsec = ts.tv_nsec;
+	pkt.eth_protocol = skb->protocol;
 
 	eth_header = eth_hdr(skb);
 	memcpy(&pkt.ethh, eth_header, sizeof(struct ethhdr));

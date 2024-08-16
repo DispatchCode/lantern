@@ -36,6 +36,7 @@ struct net_packet {
 	} network;
 
 	int protocol;
+	int eth_protocol;
 	// Not used yet
 	//char http_method[HTTP_METHOD_SIZE];
 	//char http_body[HTTP_BODY_SIZE];
@@ -43,7 +44,7 @@ struct net_packet {
 	int length;
 	int skb_len;
 	int cpu_id;
-}  __attribute__ ((packed));
+}  __attribute__ ((aligned));
 
 #endif
 
