@@ -122,16 +122,12 @@ void PacketReaderWindow::StartPacketReader()
 			if(bytes_read > 0) {
 				int num_packets = bytes_read / sizeof(struct net_packet);
 				
-				{
-					std::scoped_lock lock(packetMutex);
-
-					for(int i=0; i < num_packets; i++) {
-						std::thread([this, pkt = pkts[i]]() {
-							std::scoped_lock lock(packetMutex, queueMutex);
-							packets.emplace_back(pkt);
-							incomingPackets.emplace(pkt);
-						}).detach();
-					}
+				for(int i=0; i < num_packets; i++) {
+					std::thread([this, pkt = pkts[i]]() {
+						std::scoped_lock lock(packetMutex, queueMutex);
+						packets.emplace_back(pkt);
+						incomingPackets.emplace(pkt);
+					}).detach();
 				}
 		
 				wxThreadEvent event(wxEVT_THREAD, wxID_ANY);
