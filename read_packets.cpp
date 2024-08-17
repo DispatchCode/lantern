@@ -5,7 +5,7 @@
 #include <iostream>
 
 #define DEVICE_FILE "/dev/packet_sniffer"
-#define PKTS_BATCH  25
+#define PKTS_BATCH 50
 
 #define ID_BLOCK_SRC 0x1122
 #define ID_BLOCK_DST 0x1123
@@ -203,13 +203,14 @@ void PacketReaderWindow::StartPacketReader()
 			if(bytes_read > 0) {
 				int num_packets = bytes_read / sizeof(struct net_packet);
 				
-				for(int i=0; i < num_packets; i++) {
-					std::thread([this, pkt = pkts[i]]() {
-						std::scoped_lock lock(packetMutex, queueMutex);
-						packets.emplace_back(pkt);
-						incomingPackets.emplace(pkt);
-					}).detach();
-				}
+				std::thread([this, pkts, num_packets]() {
+					std::scoped_lock lock(packetMutex, queueMutex);
+				
+					for(int i=0; i < num_packets; i++) {
+						packets.emplace_back(pkts[i]);
+						incomingPackets.emplace(pkts[i]);
+					}
+				}).detach();
 		
 				wxThreadEvent event(wxEVT_THREAD, wxID_ANY);
 				wxQueueEvent(this, event.Clone());
