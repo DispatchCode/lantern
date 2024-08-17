@@ -7,6 +7,8 @@
 #define DEVICE_FILE "/dev/packet_sniffer"
 #define PKTS_BATCH  25
 
+#define ID_BLOCK_SRC 0x1122
+#define ID_BLOCK_DST 0x1123
 
 inline wxColour color_by_protocol(int protocol) {
 	switch(protocol) {
@@ -43,10 +45,55 @@ void PacketReaderWindow::OnQuit(wxCommandEvent& event)
 	Close(true);
 }
 
-void PacketReaderWindow::OnMouseDownEvent(wxListEvent& event)
+
+void PacketReaderWindow::OnPopupClick(wxCommandEvent& event)
 {
 	struct net_packet pkt;
+	void *data = static_cast<wxMenu*>(event.GetEventObject())->GetClientData();
+	int index = static_cast<int>(reinterpret_cast<std::intptr_t>(data));
+
+	if(index > packets.size()) 
+		return;
+
+	{
+		std::unique_lock<std::mutex> lock(packetMutex);
+		pkt = packets[index];
+	}
+
+	auto [src, dst] = pkt_get_ips(pkt);
+
+	switch(event.GetId()) {
+		case ID_BLOCK_SRC:
+			wxMessageBox(wxString::Format("Block source: %s", src), wxT("Ban address"), wxOK | wxICON_INFORMATION, this);
+		break;
+		case ID_BLOCK_DST:
+			wxMessageBox(wxString::Format("Block destination: %s", dst), wxT("Ban address"), wxOK | wxICON_INFORMATION, this);
+		break;
+	}
+}
+
+void PacketReaderWindow::ShowContextMenu(wxListEvent& event)
+{
 	int index = event.GetItem();
+	void *data = reinterpret_cast<void*>(index);
+	wxMenu popup;
+	popup.SetClientData(data);
+	popup.Append(ID_BLOCK_SRC, "Ban source IP");
+	popup.Append(ID_BLOCK_DST, "Ban destination IP");
+	popup.Connect(wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(PacketReaderWindow::OnPopupClick), NULL, this);
+	PopupMenu(&popup);
+}
+
+void PacketReaderWindow::OnMouseDownEvent(wxListEvent& event)
+{
+	wxMouseState mouseState = wxGetMouseState();
+	if(mouseState.RightIsDown()) {
+		return;
+	}
+
+	struct net_packet pkt;
+	int index = event.GetItem();
+
 	if(index < packets.size())
 	{
 		{
@@ -272,5 +319,8 @@ PacketReaderWindow::PacketReaderWindow(const wxString& title) : wxFrame(NULL, wx
 	/* LIST(S) EVENTS */
 	pktList->Bind(wxEVT_LIST_ITEM_SELECTED, &PacketReaderWindow::OnMouseDownEvent, this);
 	
+	/* CONTEXT MENU, wxFrame */
+	pktList->Bind(wxEVT_LIST_ITEM_RIGHT_CLICK, &PacketReaderWindow::ShowContextMenu, this);
+
 	StartPacketReader();
 }

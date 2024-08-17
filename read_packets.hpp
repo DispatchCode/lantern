@@ -2,11 +2,14 @@
 #define PACKET_READER_H
 
 #include <wx/wx.h>
+#include <wx/event.h>
 #include <wx/listctrl.h>
 #include <wx/splitter.h>
 #include <wx/colour.h>
 #include <wx/treectrl.h>
 #include <wx/treebase.h>
+#include <wx/utils.h> 
+#include <wx/mousestate.h>
 
 #include <tuple>
 #include <fcntl.h>
@@ -46,6 +49,9 @@ public:
 	void OnAbout(wxCommandEvent& event);
 	void OnSize(wxCommandEvent& event);
 	void OnMouseDownEvent(wxListEvent& event);
+	void ShowContextMenu(wxListEvent& event);
+	void OnPopupClick(wxCommandEvent& event);
+
 private:
 	void StartPacketReader();
 	
