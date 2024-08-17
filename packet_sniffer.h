@@ -51,7 +51,7 @@ struct net_packet {
 	int length;
 	int skb_len;
 	int cpu_id;
-}  __attribute__ ((aligned));
+};
 
 #endif
 
