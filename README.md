@@ -21,19 +21,25 @@ This is achived due to the interaction between a kernel module and a GUI applica
 
 > The column "CPU #" shows the cpu that called the hook function (`capture()`, in the driver source code)
 
+## How it works?
+The driver - currently named `packer_sniffer.c` - is responsible to read the network packet using a Netfilter hook; this hook is called `NF_INET_PRE_ROUTING`, and is called right after the packets enter the kernel network stack.
+Using this hook is possibile re-route the packet, accept it, or also drop it.
+
+Each packet is collected in a buffer that will be copied to a user-space buffer using `device_read` (using a character device).
+
+The user-mode application reads from the character device a certain amount of bytes (checked by the kernel driver, so that only a fixed amount of bytes will be copied at most). 
+
 ## Let's *make* it!
 - Tested on Linux v6.9 and v6.10 (atm)
 - You will also need [wxWidget](https://www.wxwidgets.org/downloads/) installed
 
-Be sure to be...
-```bash
-su -
-```
-...then, compile and execute:
+Compile and execute with:
 
 ```bash
 make && make run
 ```
+You must be `sudo` in order to load the module, run the program and unload the module; that's why your password is needed.
+
 You can also remove the generated files:
 ```bash
 make clean
