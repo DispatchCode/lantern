@@ -2,47 +2,46 @@
 
 ___
 
-*Lantern* is a (toy) packet analyzer that also support blocking source / destination IP addresses.
-This is achived due to the interaction between a kernel module and a GUI application.
+*Lantern* is a lightweight packet analyzer that also supports blocking source and destination IP addresses. 
+This is achieved through the interaction between a kernel module and a GUI application
 
 ## Features
 ✅ IPv4 & IPv6 <br>
 ✅ TCP & UDP <br>
-✅  ICMPv6 & IGMP <br>
-❌ What's not mentioned above <br>
+✅ ICMPv6 & IGMP <br>
+❌ All other protocols not mentioned above <br>
 
 ## Planned feature / changes
-🎯 Block / unblock IPs (only a context menu will be displayed, followed by a message box, now) <br>
-🎯 Decent multithread on the user-mode application (by using thread-pools) <br>
-🎯 Support of other protocols <br>
-🎯 Add more details when a packet is selected <br>
+🎯 Block/unblock IPs (currently only a context menu and message box are available) <br> 
+🎯 Implement proper multithreading in the user-mode application (using thread pools) <br>
+🎯 Support for additional protocols <br> 
+🎯 Display more detailed information when a packet is selected <br>
 
 ![packet_sniffer](https://github.com/user-attachments/assets/fa0c6bae-a591-4f17-821b-b4e540faf3f7)
 
 > The column "CPU #" shows the cpu that called the hook function (`capture()`, in the driver source code)
 
 ## How it works?
-The driver - currently named `packer_sniffer.c` - is responsible to read the network packet using a Netfilter hook; this hook is called `NF_INET_PRE_ROUTING`, and is called right after the packets enter the kernel network stack.
-Using this hook is possibile re-route the packet, accept it, or also drop it.
+The driver, currently named packet_sniffer.c, is responsible for reading network packets using a Netfilter hook. This hook, called NF_INET_PRE_ROUTING, is triggered right after packets enter the kernel's network stack. With this hook, it's possible to re-route, accept, or drop the packet.
 
-Each packet is collected in a buffer that will be copied to a user-space buffer using `device_read` (using a character device).
+Each packet is collected in a buffer, which is then copied to a user-space buffer using device_read (via a character device).
 
-The user-mode application reads from the character device a certain amount of bytes (checked by the kernel driver, so that only a fixed amount of bytes will be copied at most). 
+The user-mode application reads a specified number of bytes from the character device, with the kernel driver ensuring that only a fixed maximum amount of data is copied.
 
 ## Let's *make* it!
 - Tested on Linux v6.9 and v6.10 (atm)
-- You will also need [wxWidget](https://www.wxwidgets.org/downloads/) installed
+- You will also need to have [wxWidget](https://www.wxwidgets.org/downloads/) installed
 
 Compile and execute with:
 
 ```bash
 make && make run
 ```
-You must be `sudo` in order to load the module, run the program and unload the module; that's why your password is needed.
+Each action requires `sudo` privileges - at least for now.
 
 You can also remove the generated files:
 ```bash
 make clean
 ```
 
-The kernel module will be compiled, loaded and unloaded when the application exits.
+The kernel module will be compiled, loaded and automatically unloaded when the application exits.
