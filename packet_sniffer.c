@@ -217,10 +217,8 @@ static unsigned int capture(void *priv, struct sk_buff *skb, const struct nf_hoo
 
 #define CLASS_NAME "packet_sniffer_class"
 
-static int __init packet_sniffer_init(void) {
-	int ret;
-
-	init_waitqueue_head(&wait_queue);
+static int register_net_hook(void) {
+	int ret = 0;
 
 	// IPv4 Netfilter Hook
 	nf_ops.hook = capture;
@@ -237,15 +235,27 @@ static int __init packet_sniffer_init(void) {
 	ret = nf_register_net_hook(&init_net, &nf_ops);
 	if (ret) {
 		pr_err("packet_sniffer: Netfilter registration failed\n");
-		return ret;
+		goto net_reg_failed;
 	}
 
 	ret = nf_register_net_hook(&init_net, &nf_ops_ipv6);
 	if (ret) {
 		pr_err("packet_sniffer: Netfilter registration failed\n");
 		nf_unregister_net_hook(&init_net, &nf_ops);
-		return ret;
 	}
+
+net_reg_failed:
+
+	return ret;
+}
+
+static int __init packet_sniffer_init(void) {
+	int ret;
+
+	init_waitqueue_head(&wait_queue);
+
+	if(register_net_hook())
+		goto err_nf_unregister_net_hook;
 
 	ret = alloc_chrdev_region(&dev_num, 0, 1, DEVICE_NAME);
 	if (ret) {
